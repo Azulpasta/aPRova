@@ -1,0 +1,42 @@
+# Segredos e configuração local
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+chaves/
+
+# Binários compilados
+/api
+/worker
+/benchmark
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Artefatos de build e cobertura
+coverage.out
+coverage.html
+/vendor/
+
+# Temporários e caches
+/tmp/
+tmp/
+*.tmp
+*.log
+
+# Volumes de desenvolvimento local
+/dados-postgres/
+/dados-redis/
+/dados-n8n/
+
+# Editores e sistema operacional
+.DS_Store
+.idea/
+.vscode/
+*.swp
