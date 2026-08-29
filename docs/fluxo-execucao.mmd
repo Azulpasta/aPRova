@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant GH as GitHub
+    participant API as cmd/api
+    participant DB as PostgreSQL
+    participant W as cmd/worker
+    participant CRJ as Cloud Run Job
+    participant N8N as n8n
+
+    GH->>API: POST /webhooks/github
+    API->>API: valida HMAC-SHA256
+    API->>DB: cria task_run (pendente)
+    API-->>GH: 202 Accepted
+
+    Note over API,GH: resposta imediata:<br/>GitHub não espera o sandbox
+
+    W->>DB: assume task_run
+    W->>CRJ: dispara execução (API)
+    Note over W,CRJ: assíncrono: o job roda<br/>desacoplado do worker
+    CRJ->>DB: grava ResultadoSandbox
+    W->>DB: lê resultado
+    W->>W: classifica risco e assina recibo
+    W->>DB: grava recibo (append-only)
+    W->>GH: publica Check Run e comentário
+    W-)N8N: evento (fire-and-forget)
+    Note over W,N8N: não aguarda resposta:<br/>n8n fora do ar não trava o fluxo

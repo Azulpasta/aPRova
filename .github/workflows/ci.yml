@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  qualidade:
+    name: qualidade
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13.2
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
+
+  seguranca:
+    name: seguranca
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            dir /repo --redact --no-banner --verbose
+
+      - name: govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod

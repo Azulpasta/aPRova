@@ -1,0 +1,45 @@
+graph TD
+    subgraph entrada["Entrada"]
+        API["internal/api<br/>handlers HTTP · chi"]
+    end
+
+    subgraph negocio["Regra de negócio"]
+        WORKER["internal/worker<br/>máquina de estados"]
+        GATE["internal/gate<br/>classificação de risco"]
+        RECEIPT["internal/receipt<br/>hash e assinatura"]
+        DOMAIN["internal/domain<br/>structs e validação"]
+    end
+
+    subgraph portas["Portas (interfaces)"]
+        PLATFORM["internal/platform<br/>PlataformaHospedagem"]
+        SANDBOX["internal/sandbox<br/>ExecutorIsolado"]
+        LLM["internal/llm<br/>AgenteCodificacao"]
+        REPO["internal/repository<br/>gerado por sqlc"]
+    end
+
+    subgraph externo["Adaptadores externos"]
+        GH["GitHub API"]
+        CRJ["Cloud Run Jobs"]
+        CC["Claude Code headless"]
+        PG[("PostgreSQL<br/>pgvector")]
+        RD[("Redis")]
+    end
+
+    API --> WORKER
+    API --> REPO
+    WORKER --> GATE
+    WORKER --> SANDBOX
+    WORKER --> LLM
+    WORKER --> PLATFORM
+    WORKER --> REPO
+    GATE --> RECEIPT
+    GATE --> REPO
+    RECEIPT --> REPO
+    WORKER --> DOMAIN
+    GATE --> DOMAIN
+
+    PLATFORM -.implementa.-> GH
+    SANDBOX -.implementa.-> CRJ
+    LLM -.implementa.-> CC
+    REPO --> PG
+    WORKER --> RD

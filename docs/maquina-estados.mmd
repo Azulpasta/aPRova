@@ -1,0 +1,40 @@
+stateDiagram-v2
+    [*] --> pendente : webhook validado
+
+    pendente --> mapeando_contexto : worker assume
+    mapeando_contexto --> gerando : contexto montado
+    mapeando_contexto --> falhou : erro ao clonar
+
+    gerando --> testando_sandbox : diff produzido
+    gerando --> falhou : agente não produziu diff
+
+    testando_sandbox --> avaliando_risco : job concluído
+    testando_sandbox --> falhou : timeout ou erro de infra
+
+    avaliando_risco --> aplicando : risco baixo ou médio
+    avaliando_risco --> aguardando_aprovacao : risco alto
+
+    aguardando_aprovacao --> aplicando : review aprovado
+    aguardando_aprovacao --> rejeitado : alterações solicitadas
+    aguardando_aprovacao --> aguardando_aprovacao : review sem decisão
+
+    aplicando --> concluido : check publicado e recibo gravado
+    aplicando --> falhou : erro ao publicar
+
+    rejeitado --> [*]
+    concluido --> [*]
+    falhou --> [*]
+
+    note right of avaliando_risco
+        Recibo é gerado aqui, antes
+        da bifurcação. Toda decisão
+        tem recibo, inclusive as que
+        travam.
+    end note
+
+    note right of aguardando_aprovacao
+        Único estado não terminal que
+        espera evento externo. Dispara
+        alerta no Slack e inicia o
+        contador de SLA.
+    end note
