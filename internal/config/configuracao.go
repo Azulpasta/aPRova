@@ -42,13 +42,13 @@ func Carregar() (Configuracao, error) {
 	}
 
 	configuracao := Configuracao{
-		URLBancoDados:        os.Getenv("DATABASE_URL"),
-		URLRedis:             os.Getenv("REDIS_URL"),
-		Porta:                valorOuPadrao(os.Getenv("PORT"), portaPadrao),
-		GitHubAppID:          os.Getenv("GITHUB_APP_ID"),
-		GitHubChavePrivada:   os.Getenv("GITHUB_PRIVATE_KEY"),
-		GitHubSegredoWebhook: os.Getenv("GITHUB_WEBHOOK_SECRET"),
-		ReciboChavePrivada:   os.Getenv("RECEIPT_PRIVATE_KEY"),
+		URLBancoDados:        lerVariavel("DATABASE_URL"),
+		URLRedis:             lerVariavel("REDIS_URL"),
+		Porta:                valorOuPadrao(lerVariavel("PORT"), portaPadrao),
+		GitHubAppID:          lerVariavel("GITHUB_APP_ID"),
+		GitHubChavePrivada:   lerVariavel("GITHUB_PRIVATE_KEY"),
+		GitHubSegredoWebhook: lerVariavel("GITHUB_WEBHOOK_SECRET"),
+		ReciboChavePrivada:   lerVariavel("RECEIPT_PRIVATE_KEY"),
 	}
 
 	if err := validar(configuracao); err != nil {
@@ -72,8 +72,12 @@ func carregarArquivoLocal() error {
 	return fmt.Errorf("ler arquivo .env: %w", err)
 }
 
+func lerVariavel(nome string) string {
+	return strings.TrimSpace(os.Getenv(nome))
+}
+
 func valorOuPadrao(valor, padrao string) string {
-	if strings.TrimSpace(valor) == "" {
+	if valor == "" {
 		return padrao
 	}
 	return valor
@@ -98,8 +102,15 @@ func validar(configuracao Configuracao) error {
 	return fmt.Errorf("configuração inválida: %s", strings.Join(pendencias, "; "))
 }
 
+func nomeDaVariavel(campo string) string {
+	if variavel, mapeado := variavelDeAmbientePorCampo[campo]; mapeado {
+		return variavel
+	}
+	return campo
+}
+
 func descreverPendencia(erroDeCampo validator.FieldError) string {
-	variavel := variavelDeAmbientePorCampo[erroDeCampo.Field()]
+	variavel := nomeDaVariavel(erroDeCampo.Field())
 	if erroDeCampo.Tag() == "required" {
 		return fmt.Sprintf("%s não definida", variavel)
 	}

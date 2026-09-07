@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -27,11 +28,23 @@ func (s *Servidor) manipularProntidao(w http.ResponseWriter, r *http.Request) {
 	ctx, cancelar := context.WithTimeout(r.Context(), tempoLimiteVerificacao)
 	defer cancelar()
 
+	falhas := make([]error, len(s.dependencias))
+	var verificacoes sync.WaitGroup
+
+	for indice, dependencia := range s.dependencias {
+		verificacoes.Add(1)
+		go func() {
+			defer verificacoes.Done()
+			falhas[indice] = dependencia.Verificar(ctx)
+		}()
+	}
+	verificacoes.Wait()
+
 	situacoes := make(map[string]string, len(s.dependencias))
 	pronto := true
 
-	for _, dependencia := range s.dependencias {
-		if err := dependencia.Verificar(ctx); err != nil {
+	for indice, dependencia := range s.dependencias {
+		if err := falhas[indice]; err != nil {
 			slog.Error("dependência indisponível", "dependencia", dependencia.Nome, "erro", err)
 			situacoes[dependencia.Nome] = situacaoIndisponivel
 			pronto = false

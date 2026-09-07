@@ -6,7 +6,7 @@ sequenceDiagram
     participant CRJ as Cloud Run Job
     participant N8N as n8n
 
-    GH->>API: POST /webhooks/github
+    GH->>API: POST /webhooks/githuba
     API->>API: valida HMAC-SHA256
     API->>DB: cria task_run (pendente)
     API-->>GH: 202 Accepted
