@@ -1,0 +1,308 @@
+flowchart TB
+    %% aPRova — fluxograma lógico completo
+    %% Reconstruído a partir do fluxograma definitivo do Miro.
+    %% Linhas contínuas: caminho causal da PR.
+    %% Linhas tracejadas: evento assíncrono, registro transversal ou feedback.
+
+    subgraph CONFIG["Configuração do repositório antes do fluxo protegido"]
+        direction LR
+        cfg_install(["GitHub App instalada em novo repositório"])
+        cfg_check["Verifica se o Check do aPRova está configurado como obrigatório na proteção de branch"]
+        cfg_ok{"Configuração correta?"}
+        cfg_notify["Notifica a equipe sobre a pendência de configuração"]
+        cfg_fix["Equipe corrige a proteção de branch"]
+        cfg_prepare["Prepara acompanhamento do repositório e integrações configuradas"]
+        cfg_ready(["Repositório pronto para o fluxo protegido de PR"])
+    end
+
+    subgraph ENTRADA["Entrada da Pull Request"]
+        direction TB
+        entry_pr(["PR aberta ou atualizada"])
+        entry_event["Recebe evento da Pull Request"]
+        entry_valid{"Solicitação válida?"}
+        entry_reject(["Evento rejeitado"])
+    end
+
+    subgraph ANALISE["01 · Análise da PR"]
+        direction TB
+        analysis_start[["Inicia análise da PR"]]
+        inspect_changes["Inspeciona alterações: arquivos, linhas, áreas sensíveis, volume e dependências"]
+        new_dep{"Nova dependência?"}
+        cve_lookup["Consulta base pública de vulnerabilidades"]
+        cve_merge["Incorpora resultado ao relatório da PR, sem alterar o risco"]
+        sandbox_tests["Executa testes em ambiente isolado · Go · Python · Java"]
+        execution_done{"Execução concluída?"}
+        failure["Registra falha operacional ou timeout; mantém verificação sem sucesso"]
+        retry{"Nova tentativa solicitada?"}
+        consolidate[["Consolida alterações, resultado dos testes e consulta de dependências"]]
+    end
+
+    subgraph RISCO["02 · Classificação de risco"]
+        direction TB
+        risk_receive[["Recebe as evidências consolidadas"]]
+        rules["Aplica regras determinísticas: áreas sensíveis, falha de testes e exigência de testes"]
+        base_class["Obtém classificação base + motivo nomeado"]
+        history_repo["Consulta histórico do repositório"]
+        calibrate["Calibra áreas sensíveis pelo histórico; falha de testes mantém risco ALTO"]
+        classification_closed[["Fecha classificação reproduzível: BAIXO · MÉDIO · ALTO + motivo"]]
+    end
+
+    subgraph EVIDENCIA["03 · Evidência e registro"]
+        direction TB
+        evidence_class[["Classificação concluída"]]
+        explainer["Explicação em linguagem natural — IA comunica"]
+        receipt["Gera recibo assinado e verificável"]
+        sarif["Saída SARIF para o GitHub"]
+        outputs[["Consolida as saídas da análise"]]
+        history_record[["Registra metadados e recibo em histórico imutável"]]
+        risk_level{"Qual o nível de risco?"}
+    end
+
+    subgraph SAIDAS["Publicação e liberação"]
+        direction TB
+        low_publish["Publica comentário + recibo + SARIF + Check Run com sucesso"]
+        medium_attention["Publica pontos de atenção; contabiliza risco MÉDIO separadamente"]
+        merge_allowed(["Merge liberado no GitHub"])
+        publish_fail["Falha ao publicar: registra erro e tenta publicar novamente; não libera merge"]
+    end
+
+    subgraph APROVACAO["04 · Aprovação humana — risco ALTO"]
+        direction TB
+        approval_receive[["Recebe classificação ALTO"]]
+        approval_publish["Publica relatório + recibo + SARIF com Check Run pendente"]
+        protect_wait["Proteção de branch condiciona o merge e aguarda revisão humana"]
+        review_result{"Resultado da revisão?"}
+        validate_reviewer["Valida revisor e registra justificativa obrigatória para liberar alto risco"]
+        justification_ok{"Justificativa válida e revisor autorizado?"}
+        update_check[["Atualiza verificação e libera o merge"]]
+        request_changes["Solicita alterações na PR"]
+        pr_outcome{"O que aconteceu com a PR?"}
+        pr_updated["PR atualizada gera novo evento"]
+        pr_closed(["PR fechada sem merge"])
+    end
+
+    subgraph POS_MERGE["Decisão humana de incorporação"]
+        direction TB
+        post_decide["Pessoa responsável decide sobre o merge"]
+        post_merged_q{"PR foi incorporada?"}
+        post_merged(["PR incorporada; registra resultado"])
+        post_pending(["Permanece aberta ou é fechada sem merge"])
+    end
+
+    subgraph REVERSAO["05 · Reversão via recibo"]
+        direction TB
+        reversal_requested(["Reversão solicitada para PR já incorporada"])
+        select_receipt["Seleciona o recibo da alteração original"]
+        verify_receipt["Verifica integridade e assinatura antes de usar o recibo"]
+        receipt_valid{"Recibo válido?"}
+        reversal_rejected(["Reversão rejeitada"])
+        reversal_pr["Cria nova PR contendo a reversão"]
+        link_hash["Vincula identificador e hash do recibo original no commit de reversão"]
+        reenter[["Nova PR entra novamente no fluxo normal"]]
+    end
+
+    subgraph AUTOMACOES["Automações e fluxos complementares"]
+        direction TB
+        automation_event[["Recebe evento assíncrono do núcleo"]]
+        unavailable["Automação indisponível: processamento da PR continua"]
+
+        subgraph TRELLO["PR vinculada ao Trello"]
+            trello_detect["Detecta vínculo entre PR e card"]
+            trello_comment["Comenta no Trello sugerindo movimentação — nunca move sozinho"]
+        end
+
+        subgraph SLACK["Ação remota via Slack"]
+            slack_alert["Envia alerta imediato ao Slack"]
+            slack_remote{"Revisor executou ação remota?"}
+            slack_wait["Continua aguardando revisão"]
+            slack_verify["Núcleo verifica permissão do usuário no GitHub"]
+            slack_auth{"Usuário autorizado?"}
+            slack_reject["Ação rejeitada"]
+            slack_record["Registra decisão no mecanismo nativo do GitHub"]
+        end
+
+        subgraph CHAT["Consulta por chat"]
+            chat_start(["Consulta iniciada"])
+            chat_read["Consulta somente dados de leitura"]
+            chat_response(["Responde sobre métricas, relatórios e execuções"])
+        end
+
+        subgraph DIGEST["Digest semanal"]
+            digest_schedule(["Agenda semanal"])
+            digest_metrics["Consulta métricas agregadas"]
+            digest_publish["Publica digest: execuções, sucesso, aprovações, reversões e risco MÉDIO separado"]
+        end
+
+        subgraph MONITOR["Monitoramento"]
+            monitor_start(["Rotina inicia"])
+            monitor_metrics["Consulta métricas operacionais"]
+            anomaly{"Há anomalia?"}
+            anomaly_alert(["Emite alerta"])
+            anomaly_end(["Encerra"])
+        end
+
+        subgraph SLA["Acompanhamento de SLA"]
+            sla_start["Inicia acompanhamento do SLA"]
+            sla_expired{"Prazo excedido?"}
+            sla_within(["Permanece dentro do SLA"])
+            sla_escalate["Renotifica e escalona ao responsável"]
+        end
+
+        history_db[("Histórico append-only · execuções · testes · risco · recibos · decisões · incorporações · reversões")]
+    end
+
+    subgraph APRENDIZADO["Aprendizado e evolução das regras"]
+        direction TB
+        learn_start(["Rotina periódica de melhoria"])
+        learn_analyze["Analisa reversões e decisões contrariadas por humanos"]
+        learn_propose["IA propõe nova regra — sem alterar o gate automaticamente"]
+        learn_admin{"Administrador aprova a regra?"}
+        learn_apply["Incorpora a regra ao conjunto determinístico para futuras análises"]
+        learn_discard(["Proposta descartada"])
+    end
+
+    %% 118 relações do fluxograma definitivo
+    trello_detect --> trello_comment
+    sla_start --> sla_expired
+    sla_expired -->|"Sim"| sla_escalate
+    automation_event -.->|"PR vinculada a card"| trello_detect
+    protect_wait -.->|"aguardando aprovação"| automation_event
+    chat_read --> chat_response
+    chat_start --> chat_read
+    digest_schedule --> digest_metrics
+    slack_remote -->|"Não"| slack_wait
+    automation_event -.->|"aguardando aprovação"| slack_alert
+    slack_alert --> slack_remote
+    slack_auth -->|"Sim"| slack_record
+    slack_auth -->|"Não"| slack_reject
+    slack_verify --> slack_auth
+    slack_remote -->|"Sim"| slack_verify
+    anomaly -->|"Sim"| anomaly_alert
+    anomaly -->|"Não"| anomaly_end
+    monitor_metrics --> anomaly
+    monitor_start --> monitor_metrics
+    digest_metrics --> digest_publish
+    sla_escalate --> slack_alert
+    sla_expired -->|"Não"| sla_within
+    slack_wait -->|"PR pendente"| sla_start
+    automation_event -.->|"Se indisponível"| unavailable
+    retry -->|"Não"| failure
+    failure --> retry
+    retry -->|"Sim"| analysis_start
+    analysis_start --> inspect_changes
+    analysis_start --> sandbox_tests
+    risk_level -->|"BAIXO"| low_publish
+    risk_level -->|"MÉDIO"| medium_attention
+    base_class --> history_repo
+    rules --> base_class
+    medium_attention --> low_publish
+    execution_done -->|"Não"| failure
+    sandbox_tests --> execution_done
+    history_repo --> calibrate
+    calibrate --> classification_closed
+    reenter -->|"nova PR reentra no fluxo completo"| entry_pr
+    entry_pr --> entry_event
+    entry_valid -->|"Sim"| analysis_start
+    entry_event --> entry_valid
+    new_dep -->|"Sim"| cve_lookup
+    inspect_changes --> new_dep
+    cve_merge -->|"Resultado da consulta"| consolidate
+    execution_done -->|"Sim"| consolidate
+    new_dep -->|"Não"| consolidate
+    entry_valid -->|"Não"| entry_reject
+    risk_receive --> rules
+    consolidate --> risk_receive
+    approval_publish --> protect_wait
+    risk_level -->|"ALTO"| approval_receive
+    low_publish -.->|"evento assíncrono"| automation_event
+    low_publish -->|"Publicação confirmada"| merge_allowed
+    receipt_valid -->|"Sim"| reversal_pr
+    receipt_valid -->|"Não"| reversal_rejected
+    reversal_pr --> link_hash
+    link_hash --> reenter
+    post_merged -.->|"Se houver solicitação de reversão"| reversal_requested
+    cve_lookup --> cve_merge
+    medium_attention -.-> automation_event
+    approval_receive --> approval_publish
+    evidence_class --> sarif
+    evidence_class --> receipt
+    classification_closed --> evidence_class
+    evidence_class --> explainer
+    slack_record --> review_result
+    pr_outcome -->|"Fechada"| pr_closed
+    review_result -->|"Sem decisão"| protect_wait
+    pr_updated -.->|"novo evento synchronize"| entry_event
+    protect_wait --> review_result
+    pr_outcome -->|"Atualizada"| pr_updated
+    request_changes --> pr_outcome
+    review_result -->|"Alterações solicitadas"| request_changes
+    justification_ok -->|"Não"| protect_wait
+    sarif --> outputs
+    receipt --> outputs
+    explainer --> outputs
+    history_record --> risk_level
+    outputs --> history_record
+    review_result -->|"Aprovada"| validate_reviewer
+    update_check -->|"Libera merge"| merge_allowed
+    justification_ok -->|"Sim"| update_check
+    validate_reviewer --> justification_ok
+    post_merged -.->|"Registra incorporação"| history_db
+    history_db -.-> monitor_metrics
+    history_db -.-> digest_metrics
+    history_db -.-> chat_read
+    history_db -.->|"histórico para calibração"| history_repo
+    link_hash -.->|"encadeia reversão"| history_db
+    history_record -.->|"registra execução"| history_db
+    validate_reviewer -.->|"registra justificativa"| history_db
+    verify_receipt --> receipt_valid
+    reversal_requested --> select_receipt
+    history_db -.->|"fornece recibo registrado"| select_receipt
+    select_receipt --> verify_receipt
+    learn_apply -.->|"regra aprovada vale nas próximas análises"| rules
+    history_db -.->|"dados históricos"| learn_analyze
+    learn_start --> learn_analyze
+    learn_analyze --> learn_propose
+    learn_admin -->|"Sim"| learn_apply
+    learn_admin -->|"Não"| learn_discard
+    learn_propose --> learn_admin
+    post_merged_q -->|"Sim"| post_merged
+    post_merged_q -->|"Não / ainda não"| post_pending
+    post_decide --> post_merged_q
+    post_pending -.->|"PR aberta"| post_decide
+    approval_publish -->|"Falha de publicação"| publish_fail
+    publish_fail -->|"Tenta publicar novamente"| risk_level
+    low_publish -->|"Falha de publicação"| publish_fail
+    cfg_ok -->|"Sim"| cfg_prepare
+    cfg_prepare --> cfg_ready
+    cfg_install --> cfg_check
+    cfg_check --> cfg_ok
+    cfg_ok -->|"Não"| cfg_notify
+    cfg_fix -.->|"verifica novamente"| cfg_check
+    cfg_notify --> cfg_fix
+    merge_allowed --> post_decide
+
+    %% Classes visuais aproximadas da legenda original
+    classDef process fill:#fff2b2,stroke:#c49a19,color:#2d3142,stroke-width:1px;
+    classDef decision fill:#cfe0ff,stroke:#4c79bd,color:#2d3142,stroke-width:1px;
+    classDef evidence fill:#ffd7b5,stroke:#aa641f,color:#2d3142,stroke-width:1px;
+    classDef success fill:#b9f2cd,stroke:#178b49,color:#173d27,stroke-width:1px;
+    classDef danger fill:#ffc7c7,stroke:#c93d3d,color:#552020,stroke-width:1px;
+    classDef peripheral fill:#eeeeee,stroke:#777777,color:#333333,stroke-width:1px;
+    classDef history fill:#e4d7ff,stroke:#7044c6,color:#34205c,stroke-width:1px;
+
+    class cfg_install,cfg_prepare,cfg_ready,entry_pr,cve_lookup,cve_merge,low_publish,merge_allowed,validate_reviewer,update_check,post_merged,reversal_requested,select_receipt,verify_receipt,reversal_pr,link_hash,reenter,slack_record,chat_response,learn_apply success;
+    class cfg_notify,cfg_fix,entry_reject,failure,publish_fail,request_changes,reversal_rejected,slack_reject,anomaly_alert,sla_escalate danger;
+    class cfg_ok,entry_valid,new_dep,execution_done,retry,risk_level,review_result,justification_ok,pr_outcome,post_merged_q,receipt_valid,slack_remote,slack_auth,anomaly,sla_expired,learn_admin decision;
+    class analysis_start,inspect_changes,sandbox_tests,consolidate,risk_receive,rules,base_class,history_repo,calibrate,classification_closed process;
+    class evidence_class,explainer,receipt,sarif,outputs,history_record,approval_receive evidence;
+    class protect_wait,approval_publish,pr_updated,pr_closed,post_decide,post_pending,automation_event,unavailable,trello_detect,trello_comment,slack_alert,slack_wait,slack_verify,chat_start,chat_read,digest_schedule,digest_metrics,digest_publish,monitor_start,monitor_metrics,anomaly_end,sla_start,sla_within peripheral;
+    class history_db,learn_start,learn_analyze,learn_propose,learn_discard history;
+
+    style CONFIG fill:#e7f8ed,stroke:#258b50,stroke-width:1px
+    style ANALISE fill:#fffaf0,stroke:#c49a19,stroke-width:1px
+    style RISCO fill:#eef4ff,stroke:#4c79bd,stroke-width:1px
+    style EVIDENCIA fill:#fff2e7,stroke:#aa641f,stroke-width:1px
+    style APROVACAO fill:#fff0f0,stroke:#c93d3d,stroke-width:1px
+    style REVERSAO fill:#eefbf2,stroke:#178b49,stroke-width:1px
+    style AUTOMACOES fill:#eef4ff,stroke:#4c79bd,stroke-width:1px
+    style APRENDIZADO fill:#f3eeff,stroke:#7044c6,stroke-width:1px
