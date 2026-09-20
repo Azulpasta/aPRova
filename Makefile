@@ -2,7 +2,7 @@ COMPOSE ?= docker-compose
 POSTGRES_USER ?= aprova
 POSTGRES_DB ?= aprova
 
-.PHONY: up down migrate run-api run-worker test lint
+.PHONY: up down migrate run-api run-worker test lint keys
 
 up:
 	$(COMPOSE) up -d --wait
@@ -21,6 +21,9 @@ run-api:
 
 run-worker:
 	go run ./cmd/worker
+
+keys:
+	@go run ./scripts/gerar-chaves
 
 test:
 	go test ./...

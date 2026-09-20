@@ -35,6 +35,8 @@ func executar() error {
 		return err
 	}
 
+	config.ConfigurarLogPadrao(configuracao)
+
 	ctx, encerrarEscutaDeSinais := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer encerrarEscutaDeSinais()
 
@@ -55,8 +57,12 @@ func executar() error {
 	}()
 
 	servidorHTTP := &http.Server{
-		Addr:              configuracao.EnderecoHTTP(),
-		Handler:           api.NovoServidor(dependencias(bancoDados, clienteRedis)...).Rotas(),
+		Addr: configuracao.EnderecoHTTP(),
+		Handler: api.NovoServidor(api.Opcoes{
+			Dependencias:   dependencias(bancoDados, clienteRedis),
+			SegredoWebhook: []byte(configuracao.GitHubSegredoWebhook),
+			Execucoes:      repository.NovoRegistroDeExecucoes(bancoDados),
+		}).Rotas(),
 		ReadHeaderTimeout: tempoLimiteLeituraCabecalho,
 	}
 

@@ -27,7 +27,7 @@ func executarProntidao(t *testing.T, dependencias ...Dependencia) (int, resposta
 	gravador := httptest.NewRecorder()
 	requisicao := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ready", nil)
 
-	NovoServidor(dependencias...).Rotas().ServeHTTP(gravador, requisicao)
+	NovoServidor(Opcoes{Dependencias: dependencias}).Rotas().ServeHTTP(gravador, requisicao)
 
 	var corpo respostaProntidao
 	if err := json.NewDecoder(gravador.Body).Decode(&corpo); err != nil {
@@ -68,7 +68,7 @@ func TestSaudeRespondeOkMesmoComDependenciaFora(t *testing.T) {
 	gravador := httptest.NewRecorder()
 	requisicao := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", nil)
 
-	NovoServidor(dependenciaQuebrada("postgres")).Rotas().ServeHTTP(gravador, requisicao)
+	NovoServidor(Opcoes{Dependencias: []Dependencia{dependenciaQuebrada("postgres")}}).Rotas().ServeHTTP(gravador, requisicao)
 
 	if gravador.Code != http.StatusOK {
 		t.Errorf("liveness não consulta dependências; esperava 200, obtive %d", gravador.Code)
@@ -109,7 +109,7 @@ func TestProntidaoDeclaraContentTypeJSON(t *testing.T) {
 	gravador := httptest.NewRecorder()
 	requisicao := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ready", nil)
 
-	NovoServidor(dependenciaSaudavel("postgres")).Rotas().ServeHTTP(gravador, requisicao)
+	NovoServidor(Opcoes{Dependencias: []Dependencia{dependenciaSaudavel("postgres")}}).Rotas().ServeHTTP(gravador, requisicao)
 
 	const esperado = "application/json; charset=utf-8"
 	if obtido := gravador.Header().Get("Content-Type"); obtido != esperado {

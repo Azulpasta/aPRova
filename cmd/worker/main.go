@@ -24,6 +24,8 @@ func executar() error {
 		return err
 	}
 
+	config.ConfigurarLogPadrao(configuracao)
+
 	ctx, encerrarEscutaDeSinais := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer encerrarEscutaDeSinais()
 
