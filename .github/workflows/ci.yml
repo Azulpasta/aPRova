@@ -10,7 +10,6 @@ permissions:
   contents: read
 
 env:
-  VERSAO_GO: "1.25.0"
   VERSAO_GITLEAKS: "8.30.1"
   VERSAO_GOLANGCI_LINT: "v2.13.2"
   VERSAO_GOVULNCHECK: "v1.8.0"
@@ -37,7 +36,7 @@ jobs:
       - name: instalar Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.VERSAO_GO }}
+          go-version-file: go.mod
           cache: true
 
       - name: go vet

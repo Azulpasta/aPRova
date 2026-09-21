@@ -9,7 +9,7 @@ saúde e aceita o webhook, mas nenhuma dessas regras está implementada ainda.
 
 ## Requisitos
 
-- Go 1.25 ou superior
+- Go 1.25.14 ou superior (versão fixada na diretiva `toolchain` do `go.mod`)
 - Docker e Docker Compose
 - golangci-lint, para o alvo `make lint`
 
@@ -147,8 +147,28 @@ exposto em quem já clonou.
 Falha em qualquer etapa reprova o build. O relatório de cobertura é publicado
 como artefato da execução, sob o nome `cobertura`.
 
-As versões do Go e de cada ferramenta estão fixadas no bloco `env` do workflow.
-Ao atualizar o Go do projeto, atualize `VERSAO_GO` junto com o `go.mod`.
+As versões das ferramentas estão fixadas no bloco `env` do workflow. A versão do
+Go não está lá: ela vem da diretiva `toolchain` do `go.mod`, que o `setup-go` lê
+através de `go-version-file`. Fonte única, para que workflow e projeto não
+possam divergir.
+
+### Reproduzindo o CI localmente
+
+A diretiva `toolchain` é um **mínimo**: se o seu Go local for mais novo, ele não
+faz downgrade, e você acaba verificando contra uma biblioteca padrão diferente
+da que o CI usa. Isso já causou um falso verde aqui — o pipeline reprovou com 28
+vulnerabilidades da stdlib que localmente não apareciam.
+
+Para rodar contra exatamente o mesmo toolchain do CI:
+
+```sh
+GOTOOLCHAIN=go1.25.14 go test ./... -race
+GOTOOLCHAIN=go1.25.14 govulncheck ./...
+```
+
+Ao subir a versão do Go, altere a diretiva `toolchain` no `go.mod` e refaça a
+verificação acima. Fixar um patch antigo é o mesmo que abrir mão das correções
+de segurança publicadas depois dele.
 
 ### Proteção da branch principal
 

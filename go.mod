@@ -2,6 +2,8 @@ module github.com/Azulpasta/aPRova
 
 go 1.25.0
 
+toolchain go1.25.14
+
 require (
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/jackc/pgx/v5 v5.10.0
