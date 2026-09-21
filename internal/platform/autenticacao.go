@@ -133,7 +133,12 @@ func (a *Autenticador) TokenParaInstalacao(ctx context.Context, instalacaoID int
 		return "", err
 	}
 
-	return renovado.(string), nil
+	token, ehTexto := renovado.(string)
+	if !ehTexto {
+		return "", fmt.Errorf("renovação de token devolveu %T em vez de string", renovado)
+	}
+
+	return token, nil
 }
 
 func (a *Autenticador) solicitarTokenComRetentativa(ctx context.Context, instalacaoID int64) (tokenDeInstalacao, error) {

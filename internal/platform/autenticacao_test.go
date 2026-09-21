@@ -186,6 +186,17 @@ func partesDoJWT(t *testing.T, assinado string) (cabecalho, reivindicacoes map[s
 	return decodificar(partes[0]), decodificar(partes[1]), partes[0] + "." + partes[1], partes[2]
 }
 
+func reivindicacaoNumerica(t *testing.T, reivindicacoes map[string]any, nome string) int64 {
+	t.Helper()
+
+	valor, ehNumero := reivindicacoes[nome].(float64)
+	if !ehNumero {
+		t.Fatalf("a reivindicação %q deveria ser numérica, obtive %T", nome, reivindicacoes[nome])
+	}
+
+	return int64(valor)
+}
+
 func TestTokenEmCacheEValidoEReutilizado(t *testing.T) {
 	relogio := novoRelogioFalso()
 	servidor := novoServidorDeTokens(t, relogio)
@@ -228,8 +239,8 @@ func TestJWTCarregaIssIatEExpDentroDoLimite(t *testing.T) {
 	}
 
 	agora := relogio.agora()
-	emitidoEm := int64(reivindicacoes["iat"].(float64))
-	expiraEm := int64(reivindicacoes["exp"].(float64))
+	emitidoEm := reivindicacaoNumerica(t, reivindicacoes, "iat")
+	expiraEm := reivindicacaoNumerica(t, reivindicacoes, "exp")
 
 	if emitidoEm != agora.Add(-toleranciaDeRelogio).Unix() {
 		t.Errorf("iat deveria recuar 60s para tolerar relógio dessincronizado, obtive %d", emitidoEm)

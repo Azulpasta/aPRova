@@ -122,6 +122,52 @@ o código de acesso a dados em `internal/repository`:
 sqlc generate
 ```
 
+## Integração contínua
+
+O pipeline está em [.github/workflows/ci.yml](.github/workflows/ci.yml) e roda a
+cada push em qualquer branch e em todo pull request para `main`.
+
+As etapas rodam em sequência, das mais baratas para as mais caras, de modo que
+uma falha trivial não espere a suíte inteira:
+
+| Ordem | Etapa | O que barra |
+| --- | --- | --- |
+| 1 | `gitleaks` | credencial no código ou no histórico |
+| 2 | `go vet` | erro que compila mas está errado |
+| 3 | `golangci-lint` | erro ignorado, problema de segurança, complexidade |
+| 4 | `go build` | quebra de compilação |
+| 5 | `go test -race` | teste reprovado e condição de corrida |
+| 6 | `govulncheck` | CVE alcançável nas dependências |
+
+O gitleaks vem primeiro porque é a falha mais grave e a mais rápida de detectar,
+e roda contra o histórico completo (`--log-opts="--all --full-history"`), não só
+contra os arquivos atuais: um segredo removido num commit posterior continua
+exposto em quem já clonou.
+
+Falha em qualquer etapa reprova o build. O relatório de cobertura é publicado
+como artefato da execução, sob o nome `cobertura`.
+
+As versões do Go e de cada ferramenta estão fixadas no bloco `env` do workflow.
+Ao atualizar o Go do projeto, atualize `VERSAO_GO` junto com o `go.mod`.
+
+### Proteção da branch principal
+
+Isto não é configurável por código: é ajuste no próprio GitHub, em
+**Settings → Branches → Branch protection rules**, feito por quem administra o
+repositório.
+
+Na regra para `main`, marque como obrigatório:
+
+- **Require status checks to pass before merging** e, na busca de checks,
+  selecione **`verificacao`** — é o nome do job do workflow, e cobre as seis
+  etapas acima de uma vez
+- **Require branches to be up to date before merging**, para que o check tenha
+  rodado contra o estado real do merge
+- **Do not allow bypassing the above settings**, senão a proteção vira sugestão
+
+O check só aparece na lista depois que o workflow rodar ao menos uma vez na
+branch. Se a lista estiver vazia, faça um push qualquer e volte à tela.
+
 ## Licença
 
 MIT. Veja [LICENSE](LICENSE).

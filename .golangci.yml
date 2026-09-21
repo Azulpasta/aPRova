@@ -2,13 +2,47 @@ version: "2"
 
 run:
   timeout: 5m
+  tests: true
 
 linters:
   default: standard
   enable:
     - bodyclose
     - errorlint
+    - goconst
+    - gocyclo
+    - gosec
     - noctx
+
+  settings:
+    gocyclo:
+      min-complexity: 12
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+      ignore-tests: true
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1020
+        - -ST1021
+        - -ST1022
+
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - gocyclo
 
 formatters:
   enable:
