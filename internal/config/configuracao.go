@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -18,12 +17,9 @@ const (
 	portaPadrao    = "8080"
 	nivelLogPadrao = "info"
 	regiaoPadrao   = "us-central1"
-	executorPadrao = "local"
 )
 
 const origemDocker = "padrão do docker-compose local, ver .env.example"
-
-var executoresDeSandboxAceitos = []string{"local", "cloudrun", "actions"}
 
 var nomesDosNiveisDeLog = []string{"debug", "info", "warn", "error"}
 
@@ -64,6 +60,13 @@ type Configuracao struct {
 	GCPRegiao       string
 	SandboxExecutor string
 
+	AzureSubscriptionID   string
+	AzureTenantID         string
+	AzureClientID         string
+	AzureClientSecret     string
+	AzureResourceGroup    string
+	AzureNomeDoJobSandbox string
+
 	URLWebhookN8N string
 }
 
@@ -95,7 +98,14 @@ func Carregar() (Configuracao, error) {
 
 		GCPProjectID:    leitura.opcional("GCP_PROJECT_ID", ""),
 		GCPRegiao:       leitura.opcional("GCP_REGION", regiaoPadrao),
-		SandboxExecutor: leitura.executorDeSandbox(),
+		SandboxExecutor: lerVariavel("SANDBOX_EXECUTOR"),
+
+		AzureSubscriptionID:   lerVariavel("AZURE_SUBSCRIPTION_ID"),
+		AzureTenantID:         lerVariavel("AZURE_TENANT_ID"),
+		AzureClientID:         lerVariavel("AZURE_CLIENT_ID"),
+		AzureClientSecret:     lerVariavel("AZURE_CLIENT_SECRET"),
+		AzureResourceGroup:    lerVariavel("AZURE_RESOURCE_GROUP"),
+		AzureNomeDoJobSandbox: lerVariavel("AZURE_SANDBOX_JOB_NAME"),
 
 		URLWebhookN8N: leitura.opcional("N8N_WEBHOOK_URL", ""),
 	}
@@ -197,15 +207,6 @@ func (l *leitor) nivelDeLog() string {
 	if _, aceito := niveisDeLogPorNome[valor]; !aceito {
 		l.registrarPendencia("LOG_LEVEL aceita %s, obtive %q",
 			strings.Join(nomesDosNiveisDeLog, ", "), valor)
-	}
-	return valor
-}
-
-func (l *leitor) executorDeSandbox() string {
-	valor := l.opcional("SANDBOX_EXECUTOR", executorPadrao)
-	if !slices.Contains(executoresDeSandboxAceitos, valor) {
-		l.registrarPendencia("SANDBOX_EXECUTOR aceita %s, obtive %q",
-			strings.Join(executoresDeSandboxAceitos, ", "), valor)
 	}
 	return valor
 }

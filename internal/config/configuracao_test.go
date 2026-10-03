@@ -18,6 +18,8 @@ func ambienteLimpo(t *testing.T) {
 		"RECEIPT_PRIVATE_KEY_BASE64", "RECEIPT_PUBLIC_KEY_BASE64",
 		"ANTHROPIC_API_KEY", "GCP_PROJECT_ID", "GCP_REGION",
 		"SANDBOX_EXECUTOR", "N8N_WEBHOOK_URL",
+		"AZURE_SUBSCRIPTION_ID", "AZURE_TENANT_ID", "AZURE_CLIENT_ID",
+		"AZURE_CLIENT_SECRET", "AZURE_RESOURCE_GROUP", "AZURE_SANDBOX_JOB_NAME",
 	} {
 		t.Setenv(variavel, "")
 	}
@@ -83,7 +85,6 @@ func TestCarregarAplicaValoresPadrao(t *testing.T) {
 		{"PORT", configuracao.Porta, portaPadrao},
 		{"LOG_LEVEL", configuracao.NivelLog, nivelLogPadrao},
 		{"GCP_REGION", configuracao.GCPRegiao, regiaoPadrao},
-		{"SANDBOX_EXECUTOR", configuracao.SandboxExecutor, executorPadrao},
 	} {
 		if caso.obtido != caso.esperado {
 			t.Errorf("%s ausente deveria cair no padrão %q, obtive %q", caso.nome, caso.esperado, caso.obtido)
@@ -104,34 +105,54 @@ func TestCarregarRegistraEmDebugCadaOpcionalAusente(t *testing.T) {
 	}
 }
 
-func TestCarregarRejeitaExecutorDeSandboxDesconhecido(t *testing.T) {
-	ambienteMinimoValido(t)
-	t.Setenv("SANDBOX_EXECUTOR", "kubernetes")
-
-	_, err := Carregar()
-
-	if err == nil {
-		t.Fatal("esperava erro para executor desconhecido, obtive nil")
-	}
-	if !strings.Contains(err.Error(), "SANDBOX_EXECUTOR") {
-		t.Errorf("o erro deve nomear a variável, obtive: %v", err)
-	}
-}
-
-func TestCarregarAceitaOsTresExecutoresPrevistos(t *testing.T) {
-	for _, executor := range []string{"local", "cloudrun", "actions"} {
-		t.Run(executor, func(t *testing.T) {
+func TestCarregarRepassaOExecutorDoSandboxSemPadraoNemValidacao(t *testing.T) {
+	for _, valor := range []string{"", "azure", "local", "valor-que-o-sandbox-vai-recusar"} {
+		t.Run("SANDBOX_EXECUTOR="+valor, func(t *testing.T) {
 			ambienteMinimoValido(t)
-			t.Setenv("SANDBOX_EXECUTOR", executor)
+			t.Setenv("SANDBOX_EXECUTOR", valor)
 
 			configuracao, err := Carregar()
 			if err != nil {
-				t.Fatalf("executor %q deveria ser aceito: %v", executor, err)
+				t.Fatalf("validar o executor é papel do pacote sandbox, não do config: %v", err)
 			}
-			if configuracao.SandboxExecutor != executor {
-				t.Errorf("esperava %q, obtive %q", executor, configuracao.SandboxExecutor)
+			if configuracao.SandboxExecutor != valor {
+				t.Errorf("esperava o valor cru %q, obtive %q", valor, configuracao.SandboxExecutor)
 			}
 		})
+	}
+}
+
+func TestCarregarLeAsCredenciaisDaAzure(t *testing.T) {
+	ambienteMinimoValido(t)
+	esperadas := map[string]string{
+		"AZURE_SUBSCRIPTION_ID":  "assinatura",
+		"AZURE_TENANT_ID":        "tenant",
+		"AZURE_CLIENT_ID":        "cliente",
+		"AZURE_CLIENT_SECRET":    "segredo",
+		"AZURE_RESOURCE_GROUP":   "grupo",
+		"AZURE_SANDBOX_JOB_NAME": "job",
+	}
+	for nome, valor := range esperadas {
+		t.Setenv(nome, valor)
+	}
+
+	configuracao, err := Carregar()
+	if err != nil {
+		t.Fatalf("carregar: %v", err)
+	}
+
+	obtidas := map[string]string{
+		"AZURE_SUBSCRIPTION_ID":  configuracao.AzureSubscriptionID,
+		"AZURE_TENANT_ID":        configuracao.AzureTenantID,
+		"AZURE_CLIENT_ID":        configuracao.AzureClientID,
+		"AZURE_CLIENT_SECRET":    configuracao.AzureClientSecret,
+		"AZURE_RESOURCE_GROUP":   configuracao.AzureResourceGroup,
+		"AZURE_SANDBOX_JOB_NAME": configuracao.AzureNomeDoJobSandbox,
+	}
+	for nome, valor := range esperadas {
+		if obtidas[nome] != valor {
+			t.Errorf("%s deveria ser %q, obtive %q", nome, valor, obtidas[nome])
+		}
 	}
 }
 

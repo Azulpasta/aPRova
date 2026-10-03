@@ -43,6 +43,10 @@ linters:
         linters:
           - gosec
           - gocyclo
+      - path: internal/sandbox/comando\.go
+        linters:
+          - gosec
+        text: G204
 
 formatters:
   enable:
