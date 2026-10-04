@@ -67,7 +67,10 @@ type Configuracao struct {
 	AzureResourceGroup    string
 	AzureNomeDoJobSandbox string
 
-	URLWebhookN8N string
+	URLWebhookN8N   string
+	N8NSegredoAcoes string
+
+	VinculosSlackGitHub map[string]string
 }
 
 // Carregar lê as variáveis de ambiente, aplica os valores padrão e valida o
@@ -107,7 +110,10 @@ func Carregar() (Configuracao, error) {
 		AzureResourceGroup:    lerVariavel("AZURE_RESOURCE_GROUP"),
 		AzureNomeDoJobSandbox: lerVariavel("AZURE_SANDBOX_JOB_NAME"),
 
-		URLWebhookN8N: leitura.opcional("N8N_WEBHOOK_URL", ""),
+		URLWebhookN8N:   leitura.opcional("N8N_WEBHOOK_URL", ""),
+		N8NSegredoAcoes: leitura.opcional("N8N_SEGREDO_ACOES", ""),
+
+		VinculosSlackGitHub: leitura.vinculosSlackGitHub("SLACK_GITHUB_VINCULOS"),
 	}
 
 	if err := leitura.erro(); err != nil {
@@ -200,6 +206,39 @@ func (l *leitor) chaveComTamanho(nome string, tamanhoEsperado int) []byte {
 		return nil
 	}
 	return bruto
+}
+
+func (l *leitor) vinculosSlackGitHub(nome string) map[string]string {
+	vinculos := map[string]string{}
+
+	valor := l.opcional(nome, "")
+	if valor == "" {
+		return vinculos
+	}
+
+	for _, entrada := range strings.Split(valor, ",") {
+		usuario, login, valido := interpretarVinculo(entrada)
+		if !valido {
+			l.registrarPendencia("%s espera pares usuario_slack:login_github separados por vírgula, entrada %q é inválida", nome, strings.TrimSpace(entrada))
+			return nil
+		}
+		if _, repetido := vinculos[usuario]; repetido {
+			l.registrarPendencia("%s vincula o usuário %q mais de uma vez", nome, usuario)
+			return nil
+		}
+		vinculos[usuario] = login
+	}
+
+	return vinculos
+}
+
+func interpretarVinculo(entrada string) (string, string, bool) {
+	usuario, login, separado := strings.Cut(strings.TrimSpace(entrada), ":")
+	usuario = strings.TrimSpace(usuario)
+	login = strings.TrimSpace(login)
+
+	valido := separado && usuario != "" && login != "" && !strings.Contains(login, ":")
+	return usuario, login, valido
 }
 
 func (l *leitor) nivelDeLog() string {
