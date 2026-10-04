@@ -28,8 +28,8 @@ a ser exigidas conforme cada funcionalidade for implementada. Subir sem uma
 variável obrigatória falha na inicialização, com uma mensagem que nomeia a
 variável e diz onde obter o valor.
 
-`SANDBOX_EXECUTOR` aceita `local`, `cloudrun` ou `actions`. Hoje só `local`
-precisa funcionar.
+`SANDBOX_EXECUTOR` aceita `local` (Docker nesta máquina) ou `azure` (Azure
+Container Apps Jobs, que exige as seis variáveis `AZURE_*`).
 
 ### Chaves de assinatura dos recibos
 
@@ -94,10 +94,45 @@ make down
 | GET    | `/health`          | Responde 200 se o processo está no ar                  |
 | GET    | `/ready`           | Responde 200 se PostgreSQL e Redis respondem, 503 se não |
 | POST   | `/webhooks/github` | Aceita o webhook com 202 e ainda não o processa        |
+| POST   | `/acoes-remotas`   | Aprova, pede alteração ou reanálise a pedido do n8n    |
 
 ```sh
 curl -i localhost:8080/health
 curl -i localhost:8080/ready
+```
+
+## Ações remotas
+
+`POST /acoes-remotas` é o único caminho por onde um canal externo (hoje, botões
+no Slack via n8n) produz efeito num pull request. O chat é controle remoto do
+mecanismo do GitHub, não um segundo mecanismo de autorização: quem decide se
+alguém pode aprovar é a permissão no repositório, consultada no GitHub a cada
+pedido, sem cache.
+
+O n8n assina cada pedido com HMAC-SHA256 usando `N8N_SEGREDO_ACOES`:
+
+```
+X-Aprova-Timestamp: <unix em segundos>
+X-Aprova-Assinatura: sha256=<hex de HMAC(segredo, timestamp + "." + corpo)>
+```
+
+Pedido com mais de 5 minutos é recusado. O n8n informa apenas o ID do usuário
+no Slack; o login no GitHub é resolvido pelo núcleo. Em desenvolvimento, os
+vínculos vêm de `SLACK_GITHUB_VINCULOS`.
+
+| Status | Quando |
+| --- | --- |
+| 202 | ação autorizada e executada |
+| 400 | corpo inválido, tipo desconhecido, ou `solicitar_alteracao` sem justificativa |
+| 401 | assinatura ausente, inválida ou velha, ou segredo não configurado |
+| 403 | sem vínculo, sem permissão de escrita, autor aprovando o próprio PR, ou falha ao verificar |
+| 409 | `id_acao` já executado |
+| 500 | autorizada, mas a execução falhou |
+
+Para conferir a permissão real de alguém, sem executar nada:
+
+```sh
+make consultar-permissao INSTALLATION_ID=12345678 REPOSITORIO=dono/repo LOGIN=alice
 ```
 
 ## Testes

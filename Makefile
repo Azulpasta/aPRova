@@ -2,7 +2,7 @@ COMPOSE ?= docker-compose
 POSTGRES_USER ?= aprova
 POSTGRES_DB ?= aprova
 
-.PHONY: up down migrate run-api run-worker test lint keys verificar-token sandbox-azure
+.PHONY: up down migrate run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao
 
 up:
 	$(COMPOSE) up -d --wait
@@ -30,6 +30,9 @@ verificar-token:
 
 sandbox-azure:
 	@go run ./scripts/disparar-sandbox-azure
+
+consultar-permissao:
+	@go run ./scripts/consultar-permissao $(INSTALLATION_ID) $(REPOSITORIO) $(LOGIN)
 
 test:
 	go test ./...
