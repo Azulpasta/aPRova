@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"log/slog"
+	"maps"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,7 @@ func ambienteLimpo(t *testing.T) {
 		"SANDBOX_EXECUTOR", "N8N_WEBHOOK_URL",
 		"AZURE_SUBSCRIPTION_ID", "AZURE_TENANT_ID", "AZURE_CLIENT_ID",
 		"AZURE_CLIENT_SECRET", "AZURE_RESOURCE_GROUP", "AZURE_SANDBOX_JOB_NAME",
+		"N8N_SEGREDO_ACOES", "SLACK_GITHUB_VINCULOS",
 	} {
 		t.Setenv(variavel, "")
 	}
@@ -153,6 +155,62 @@ func TestCarregarLeAsCredenciaisDaAzure(t *testing.T) {
 		if obtidas[nome] != valor {
 			t.Errorf("%s deveria ser %q, obtive %q", nome, valor, obtidas[nome])
 		}
+	}
+}
+
+func TestCarregarLeOSegredoDasAcoesRemotas(t *testing.T) {
+	ambienteMinimoValido(t)
+	t.Setenv("N8N_SEGREDO_ACOES", "segredo-compartilhado")
+
+	configuracao, err := Carregar()
+	if err != nil {
+		t.Fatalf("carregar: %v", err)
+	}
+
+	if configuracao.N8NSegredoAcoes != "segredo-compartilhado" {
+		t.Errorf("segredo lido errado: %q", configuracao.N8NSegredoAcoes)
+	}
+}
+
+func TestCarregarInterpretaOsVinculosSlackGitHub(t *testing.T) {
+	ambienteMinimoValido(t)
+	t.Setenv("SLACK_GITHUB_VINCULOS", " U01ABC:alice , U02DEF:bob ")
+
+	configuracao, err := Carregar()
+	if err != nil {
+		t.Fatalf("carregar: %v", err)
+	}
+
+	esperados := map[string]string{"U01ABC": "alice", "U02DEF": "bob"}
+	if !maps.Equal(configuracao.VinculosSlackGitHub, esperados) {
+		t.Errorf("vínculos = %v, esperava %v", configuracao.VinculosSlackGitHub, esperados)
+	}
+}
+
+func TestCarregarAceitaVinculosAusentes(t *testing.T) {
+	ambienteMinimoValido(t)
+
+	configuracao, err := Carregar()
+	if err != nil {
+		t.Fatalf("sem vínculos o processo sobe, só recusa todo mundo: %v", err)
+	}
+	if len(configuracao.VinculosSlackGitHub) != 0 {
+		t.Errorf("esperava nenhum vínculo, obtive %v", configuracao.VinculosSlackGitHub)
+	}
+}
+
+func TestCarregarRejeitaVinculoMalformado(t *testing.T) {
+	for _, valor := range []string{"U01ABC", "U01ABC:", ":alice", "U01ABC:alice,,U02:bob", "U01:alice:extra", "U01:alice,U01:mallory"} {
+		t.Run(valor, func(t *testing.T) {
+			ambienteMinimoValido(t)
+			t.Setenv("SLACK_GITHUB_VINCULOS", valor)
+
+			_, err := Carregar()
+
+			if err == nil || !strings.Contains(err.Error(), "SLACK_GITHUB_VINCULOS") {
+				t.Errorf("esperava erro nomeando SLACK_GITHUB_VINCULOS, obtive %v", err)
+			}
+		})
 	}
 }
 
