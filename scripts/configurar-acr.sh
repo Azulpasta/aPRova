@@ -196,7 +196,7 @@ PARAMETROS_OIDC="{\"name\":\"${CREDENCIAL_FEDERADA}\",\"issuer\":\"${EMISSOR_OID
 CREDENCIAL_ATUAL=""
 if [ -n "$APP_ID" ]; then
 	CREDENCIAL_ATUAL=$(az ad app federated-credential list --id "$APP_ID" \
-		--query "[?name=='${CREDENCIAL_FEDERADA}'] | [0].join('|', [issuer, subject, join(',', audiences)])" -o tsv)
+		--query "[?name=='${CREDENCIAL_FEDERADA}'].join('|', [issuer, subject, join(',', audiences)]) | [0]" -o tsv)
 fi
 CREDENCIAL_ESPERADA="${EMISSOR_OIDC}|${SUJEITO_OIDC}|${AUDIENCIA_OIDC}"
 if [ "$CREDENCIAL_ATUAL" = "$CREDENCIAL_ESPERADA" ]; then
@@ -273,5 +273,5 @@ PASSO="concluído"
 if [ "$PLANO" = true ]; then
 	echo "plano concluído, nada foi alterado"
 else
-	echo "concluído: ${CRIADOS} recurso(s) criado(s) ou alterado(s)"
+	echo "concluído: ${CRIADOS} recurso(s) criado(s) ou alterado(s); segredos que já existiam foram regravados com o mesmo valor e não entram na conta"
 fi
