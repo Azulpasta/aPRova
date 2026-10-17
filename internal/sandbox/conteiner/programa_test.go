@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -271,5 +272,99 @@ func TestProgramaComTrocaDeUsuarioNegadaPublicaInfraestruturaSemRodarNada(t *tes
 	}
 	if negador.tentativas != 1 || c.linguagem.chamadas != 0 {
 		t.Errorf("nada roda depois da troca negada: %d tentativas, %d execuções da linguagem", negador.tentativas, c.linguagem.chamadas)
+	}
+}
+
+func (c *cenarioDoPrograma) executarEm(t *testing.T, diretorioDeTrabalho string) int {
+	t.Helper()
+
+	relogio := &relogioDeTeste{}
+	return Programa{
+		LerVariavel:         func(nome string) string { return c.variaveis[nome] },
+		Saida:               &c.saida,
+		Rodador:             c.git,
+		DiretorioDeTrabalho: diretorioDeTrabalho,
+		Linguagens:          map[sandbox.Linguagem]ExecutorDeLinguagem{sandbox.LinguagemGo: c.linguagem},
+		Agora:               relogio.agora,
+	}.Executar(t.Context())
+}
+
+func criarDiretorio(t *testing.T, partes ...string) string {
+	t.Helper()
+
+	caminho := filepath.Join(partes...)
+	if err := os.MkdirAll(caminho, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return caminho
+}
+
+func TestProgramaRodaALinguagemNoDiretorioDoProjeto(t *testing.T) {
+	trabalho := t.TempDir()
+	projeto := criarDiretorio(t, trabalho, "repositorio", "go")
+	c := novoCenarioDoPrograma()
+	c.variaveis["APROVA_DIRETORIO"] = "go"
+
+	c.executarEm(t, trabalho)
+
+	if c.linguagem.diretorio != projeto {
+		t.Errorf("a linguagem rodou em %q, esperava %q", c.linguagem.diretorio, projeto)
+	}
+	if resultado := c.resultadoPublicado(t); resultado.TipoFalha != sandbox.FalhaNenhuma {
+		t.Errorf("obtive %+v", resultado)
+	}
+}
+
+func TestProgramaComDiretorioDoProjetoInexistentePublicaInfraestrutura(t *testing.T) {
+	trabalho := t.TempDir()
+	criarDiretorio(t, trabalho, "repositorio")
+	c := novoCenarioDoPrograma()
+	c.variaveis["APROVA_DIRETORIO"] = "go"
+
+	c.executarEm(t, trabalho)
+
+	resultado := c.resultadoPublicado(t)
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "go") {
+		t.Errorf("obtive %+v", resultado)
+	}
+	if c.linguagem.chamadas != 0 {
+		t.Error("sem o diretório do projeto nada é testado")
+	}
+}
+
+func TestProgramaRecusaDiretorioDoProjetoQueApontaParaForaDoRepositorio(t *testing.T) {
+	trabalho := t.TempDir()
+	repositorio := criarDiretorio(t, trabalho, "repositorio")
+	forasteiro := criarDiretorio(t, t.TempDir(), "modulo-alheio")
+	if err := os.Symlink(forasteiro, filepath.Join(repositorio, "go")); err != nil {
+		t.Fatal(err)
+	}
+	c := novoCenarioDoPrograma()
+	c.variaveis["APROVA_DIRETORIO"] = "go"
+
+	c.executarEm(t, trabalho)
+
+	resultado := c.resultadoPublicado(t)
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "fora do repositório") {
+		t.Errorf("um link simbólico do PR não pode levar os testes para fora do clone, obtive %+v", resultado)
+	}
+	if c.linguagem.chamadas != 0 {
+		t.Error("nada pode ser testado fora do repositório")
+	}
+}
+
+func TestProgramaRecusaDiretorioDoProjetoQueEArquivo(t *testing.T) {
+	trabalho := t.TempDir()
+	repositorio := criarDiretorio(t, trabalho, "repositorio")
+	if err := os.WriteFile(filepath.Join(repositorio, "go"), []byte("não sou diretório"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := novoCenarioDoPrograma()
+	c.variaveis["APROVA_DIRETORIO"] = "go"
+
+	c.executarEm(t, trabalho)
+
+	if resultado := c.resultadoPublicado(t); resultado.TipoFalha != sandbox.FalhaInfraestrutura || c.linguagem.chamadas != 0 {
+		t.Errorf("obtive %+v com %d execuções", resultado, c.linguagem.chamadas)
 	}
 }
