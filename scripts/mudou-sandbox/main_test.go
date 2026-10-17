@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -48,9 +49,35 @@ func TestAfetaOSandboxIgnoraOQueNaoMexeNele(t *testing.T) {
 }
 
 func TestLerCaminhosIgnoraLinhasVaziasEEspacos(t *testing.T) {
-	caminhos := lerCaminhos(strings.NewReader("README.md\n\n  cmd/sandbox/main.go  \n"))
+	caminhos := lerCaminhos("README.md\n\n  cmd/sandbox/main.go  \n")
 
 	if len(caminhos) != 2 || caminhos[1] != "cmd/sandbox/main.go" {
 		t.Errorf("obtive %q", caminhos)
+	}
+}
+
+func TestLerCaminhosAceitaSaidaSeparadaPorNULComNomeNaoASCII(t *testing.T) {
+	entrada := "README.md\x00internal/sandbox/execução.go\x00\x00"
+
+	caminhos := lerCaminhos(entrada)
+
+	if len(caminhos) != 2 || caminhos[1] != "internal/sandbox/execução.go" {
+		t.Fatalf("obtive %q", caminhos)
+	}
+	if !afetaOSandbox(caminhos) {
+		t.Error("um nome com acento em internal/sandbox precisa disparar a integração")
+	}
+}
+
+type leitorQuebrado struct{}
+
+func (leitorQuebrado) Read([]byte) (int, error) { return 0, errors.New("pipe fechado") }
+
+func TestDecidirRodaAIntegracaoQuandoNaoConsegueLerAsMudancas(t *testing.T) {
+	if !decidir(leitorQuebrado{}) {
+		t.Error("sem saber o que mudou, a integração precisa rodar")
+	}
+	if decidir(strings.NewReader("README.md\n")) {
+		t.Error("só README mudou, a integração não precisa rodar")
 	}
 }
