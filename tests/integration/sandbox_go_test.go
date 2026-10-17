@@ -132,15 +132,19 @@ func gitLocal(t *testing.T, diretorio string, argumentos ...string) string {
 
 func executarCaso(t *testing.T, caso string, prazo time.Duration) sandbox.ResultadoSandbox {
 	t.Helper()
+	return executarCasoComOpcoes(t, caso, prazo, sandbox.OpcoesExecutorLocal{})
+}
+
+func executarCasoComOpcoes(t *testing.T, caso string, prazo time.Duration, opcoes sandbox.OpcoesExecutorLocal) sandbox.ResultadoSandbox {
+	t.Helper()
 	exigirImagemDoSandboxGo(t)
 
 	repositorios := novosRepositoriosLocais(t)
 	endereco, sha := repositorios.publicar(t, caso)
 
-	executor := sandbox.NovoExecutorLocal(sandbox.OpcoesExecutorLocal{
-		ImagemPorLinguagem: map[sandbox.Linguagem]string{sandbox.LinguagemGo: imagemDoSandboxGo},
-		Montagens:          []string{repositorios.diretorio + ":" + pontoDeMontagem + ":ro"},
-	})
+	opcoes.ImagemPorLinguagem = map[sandbox.Linguagem]string{sandbox.LinguagemGo: imagemDoSandboxGo}
+	opcoes.Montagens = []string{repositorios.diretorio + ":" + pontoDeMontagem + ":ro"}
+	executor := sandbox.NovoExecutorLocal(opcoes)
 
 	ctx, cancelar := context.WithTimeout(t.Context(), prazo)
 	defer cancelar()
@@ -224,5 +228,16 @@ func TestSandboxGoModExigindoGoMaisNovoEhInfraestrutura(t *testing.T) {
 	}
 	if !strings.Contains(resultado.SaidaBruta, "go.mod exige uma versão do Go mais nova") {
 		t.Errorf("a mensagem precisa explicar a versão: %q", resultado.SaidaBruta)
+	}
+}
+
+func TestSandboxGoSemTrocaDeUsuarioFalhaFechadoEmInfraestrutura(t *testing.T) {
+	resultado := executarCasoComOpcoes(t, "ok", prazoDeUmCasoComum, sandbox.OpcoesExecutorLocal{SemCapacidadeDeTrocarDeUsuario: true})
+
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || resultado.Compilou || resultado.TestesPassaram != 0 {
+		t.Fatalf("sem troca de usuário o PR não pode rodar como root, obtive %+v", resultado)
+	}
+	if !strings.Contains(resultado.SaidaBruta, "não foi possível rodar os testes como usuário sem privilégio") {
+		t.Errorf("a mensagem precisa nomear a troca negada: %q", resultado.SaidaBruta)
 	}
 }

@@ -232,8 +232,11 @@ repositório.
 Na regra para `main`, marque como obrigatório:
 
 - **Require status checks to pass before merging** e, na busca de checks,
-  selecione **`verificacao`** — é o nome do job do workflow, e cobre as seis
-  etapas acima de uma vez
+  selecione **`verificacao`** e **`sandbox`**. O primeiro cobre as seis etapas
+  acima; o segundo é o portão da integração do sandbox, que só roda quando o
+  sandbox muda. Não exija `integracao-sandbox` diretamente: o GitHub conta job
+  pulado como aprovado, e se o `mudancas` quebrar a integração seria pulada em
+  silêncio. O `sandbox` roda sempre e reprova nesse caso
 - **Require branches to be up to date before merging**, para que o check tenha
   rodado contra o estado real do merge
 - **Do not allow bypassing the above settings**, senão a proteção vira sugestão

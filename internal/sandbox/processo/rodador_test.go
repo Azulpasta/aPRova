@@ -2,7 +2,11 @@ package processo
 
 import (
 	"context"
+	"errors"
+	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -100,5 +104,73 @@ func TestRodarNaoFicaPresoEmProcessoQueSegueComOPipeAberto(t *testing.T) {
 	}
 	if execucao.Erro != nil || execucao.CodigoSaida != 0 || !strings.Contains(string(execucao.Saida), "pronto") {
 		t.Errorf("o comando principal terminou bem, obtive %+v", execucao)
+	}
+}
+
+func credencialSemPrivilegio() *Credencial {
+	return &Credencial{UID: 10001, GID: 10001}
+}
+
+func TestRodarFalhaFechadoQuandoATrocaDeUsuarioENegada(t *testing.T) {
+	tentativas := 0
+	rodador := NovoRodador(Opcoes{Credencial: credencialSemPrivilegio()})
+	rodador.iniciar = func(processo *exec.Cmd) error {
+		tentativas++
+		if processo.SysProcAttr == nil || processo.SysProcAttr.Credential == nil {
+			t.Error("toda tentativa precisa carregar a credencial sem privilégio")
+		}
+		return &os.PathError{Op: "fork/exec", Path: processo.Path, Err: syscall.EPERM}
+	}
+
+	execucao := rodador.Rodar(t.Context(), Comando{Binario: "/bin/sh", Argumentos: []string{"-c", "echo rodou"}})
+
+	if !errors.Is(execucao.Erro, ErrTrocaDeUsuarioNegada) {
+		t.Errorf("esperava ErrTrocaDeUsuarioNegada, obtive %v", execucao.Erro)
+	}
+	if !errors.Is(execucao.Erro, syscall.EPERM) {
+		t.Errorf("a causa EPERM precisa continuar na cadeia de erros para o diagnóstico, obtive %v", execucao.Erro)
+	}
+	if tentativas != 1 {
+		t.Errorf("a troca negada não pode ser repetida nem contornada, houve %d tentativas", tentativas)
+	}
+	if len(execucao.Saida) != 0 || execucao.CodigoSaida != 0 {
+		t.Errorf("nada pode ter rodado, obtive %+v", execucao)
+	}
+}
+
+func TestRodarSemCredencialNaoConfundeEPERMComTrocaNegada(t *testing.T) {
+	rodador := NovoRodador(Opcoes{})
+	rodador.iniciar = func(processo *exec.Cmd) error {
+		return &os.PathError{Op: "fork/exec", Path: processo.Path, Err: syscall.EPERM}
+	}
+
+	execucao := rodador.Rodar(t.Context(), Comando{Binario: "/bin/sh"})
+
+	if execucao.Erro == nil || errors.Is(execucao.Erro, ErrTrocaDeUsuarioNegada) {
+		t.Errorf("sem credencial não houve troca de usuário a negar, obtive %v", execucao.Erro)
+	}
+}
+
+func TestRodarComPrazoJaEsgotadoInformaPrazoESemRodar(t *testing.T) {
+	ctx, cancelar := context.WithCancel(t.Context())
+	cancelar()
+
+	execucao := rodar(t, ctx, Comando{Binario: "/bin/sh", Argumentos: []string{"-c", "echo rodou"}})
+
+	if !execucao.PrazoEsgotado || execucao.Erro != nil {
+		t.Errorf("contexto vencido antes de começar é prazo esgotado, obtive %+v", execucao)
+	}
+	if len(execucao.Saida) != 0 {
+		t.Errorf("nada pode ter rodado: %q", execucao.Saida)
+	}
+}
+
+func TestRodadorComValorZeroContinuaUtilizavel(t *testing.T) {
+	var rodador RodadorDoSistema
+
+	execucao := rodador.Rodar(t.Context(), Comando{Binario: "/bin/sh", Argumentos: []string{"-c", "echo ok"}})
+
+	if execucao.Erro != nil || string(execucao.Saida) != "ok\n" {
+		t.Errorf("o valor zero roda com o usuário atual, obtive %+v", execucao)
 	}
 }

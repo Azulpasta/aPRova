@@ -50,8 +50,8 @@ jobs:
       - name: go build
         run: go build ./...
 
-      - name: go test
-        run: go test ./... -race -covermode=atomic -coverprofile=coverage.out
+      - name: go test, sem a integração do sandbox
+        run: go test $(go list ./... | grep -v /tests/integration) -race -covermode=atomic -coverprofile=coverage.out
 
       - name: govulncheck
         run: |
@@ -66,3 +66,89 @@ jobs:
           path: coverage.out
           if-no-files-found: warn
           retention-days: 30
+
+  mudancas:
+    name: mudancas
+    runs-on: ubuntu-latest
+    outputs:
+      sandbox: ${{ steps.filtro.outputs.sandbox }}
+
+    steps:
+      - name: checkout com histórico completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: o sandbox mudou?
+        id: filtro
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          ANTES: ${{ github.event.before }}
+          DEPOIS: ${{ github.sha }}
+        run: |
+          if [ "$EVENTO" = "pull_request" ]; then
+            faixa="origin/$BASE...HEAD"
+          elif [ -n "$ANTES" ] && [ "$ANTES" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
+            faixa="$ANTES..$DEPOIS"
+          else
+            echo "sem base de comparação confiável, a integração roda"
+            echo "sandbox=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only -z "$faixa" > mudancas.txt
+          resultado=$(go run ./scripts/mudou-sandbox < mudancas.txt)
+          echo "arquivos alterados em $faixa:"
+          tr '\0' '\n' < mudancas.txt
+          echo "sandbox=$resultado" >> "$GITHUB_OUTPUT"
+
+  integracao-sandbox:
+    name: integracao-sandbox
+    needs: mudancas
+    if: needs.mudancas.outputs.sandbox == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: integração com a imagem real do sandbox
+        run: go test ./tests/integration/... -race -count=1 -v
+
+  sandbox:
+    name: sandbox
+    needs: [mudancas, integracao-sandbox]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: a integração do sandbox passou ou não era necessária
+        env:
+          MUDANCAS: ${{ needs.mudancas.result }}
+          INTEGRACAO: ${{ needs.integracao-sandbox.result }}
+        run: |
+          echo "mudancas=$MUDANCAS integracao-sandbox=$INTEGRACAO"
+          if [ "$MUDANCAS" != "success" ]; then
+            echo "não foi possível decidir se o sandbox mudou, então a integração não pode ser dada como dispensável"
+            exit 1
+          fi
+          case "$INTEGRACAO" in
+            success | skipped) ;;
+            *)
+              echo "a integração do sandbox terminou em $INTEGRACAO"
+              exit 1
+              ;;
+          esac

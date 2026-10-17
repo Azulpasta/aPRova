@@ -277,3 +277,23 @@ func contemVariavel(argumentos []string, atribuicao string) bool {
 	}
 	return false
 }
+
+func TestContainerSemCapacidadeDeTrocarDeUsuarioDerrubaTudo(t *testing.T) {
+	comando := &comandoFalso{responder: func(_ context.Context, _ []string) (resultadoComando, error) {
+		return resultadoComando{}, nil
+	}}
+	opcoes := opcoesLocaisDeTeste()
+	opcoes.SemCapacidadeDeTrocarDeUsuario = true
+
+	if _, err := novoExecutorLocal(opcoes, comando).Executar(t.Context(), pedidoValido()); err != nil {
+		t.Fatalf("executar: %v", err)
+	}
+	argumentos := comando.argumentosDoRun(t)
+
+	if capacidades := valoresDaFlag(argumentos, "--cap-add"); len(capacidades) != 0 {
+		t.Errorf("simulando um ambiente que nega a troca, nenhuma capacidade volta: --cap-add %v", capacidades)
+	}
+	if valorDaFlag(argumentos, "--cap-drop") != "ALL" {
+		t.Errorf("--cap-drop ALL continua obrigatório: %v", argumentos)
+	}
+}

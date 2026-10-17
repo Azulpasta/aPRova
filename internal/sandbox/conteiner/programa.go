@@ -2,6 +2,7 @@ package conteiner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -68,7 +69,11 @@ func (p Programa) rodarPedido(ctx context.Context, inicio time.Time) sandbox.Res
 	defer cancelar()
 
 	diretorio := filepath.Join(p.DiretorioDeTrabalho, subdiretorioDoRepositorio)
-	if err := (Clonador{Rodador: p.Rodador}).Clonar(ctx, ambiente.Repositorio, ambiente.SHA, diretorio); err != nil {
+	err = (Clonador{Rodador: p.Rodador}).Clonar(ctx, ambiente.Repositorio, ambiente.SHA, diretorio)
+	switch {
+	case errors.Is(err, processo.ErrTrocaDeUsuarioNegada):
+		return falhaDeTrocaDeUsuario(err)
+	case err != nil:
 		return falhaDeInfraestrutura(err)
 	}
 
@@ -87,6 +92,15 @@ func (p Programa) entregar(ctx context.Context, publicador PublicadorResultado, 
 		return codigoEntregaImpossivel
 	}
 	return codigoResultadoEntregue
+}
+
+func falhaDeTrocaDeUsuario(causa error) sandbox.ResultadoSandbox {
+	slog.Error("o ambiente negou a troca para o usuário sem privilégio, nada do PR foi executado", "erro", causa)
+	return sandbox.ResultadoSandbox{
+		SaidaBruta: "aprova: não foi possível rodar os testes como usuário sem privilégio; nenhum comando do PR foi executado\n" +
+			"aprova: detalhe: " + causa.Error() + "\n",
+		TipoFalha: sandbox.FalhaInfraestrutura,
+	}
 }
 
 func falhaDeInfraestrutura(causa error) sandbox.ResultadoSandbox {

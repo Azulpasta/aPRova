@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Azulpasta/aPRova/internal/sandbox"
+	"github.com/Azulpasta/aPRova/internal/sandbox/processo"
 )
 
 var inicioDeTeste = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
@@ -231,5 +233,43 @@ func TestProgramaTerminaComCodigoUmQuandoNaoConsegueEntregar(t *testing.T) {
 
 	if codigo != 1 {
 		t.Errorf("sem entregar o resultado o executor precisa falhar, código %d", codigo)
+	}
+}
+
+type rodadorQueNegaATroca struct {
+	tentativas int
+}
+
+func (r *rodadorQueNegaATroca) Rodar(context.Context, processo.Comando) processo.Execucao {
+	r.tentativas++
+	return processo.Execucao{Erro: fmt.Errorf("%w (uid 10001): fork/exec /usr/bin/git: operation not permitted", processo.ErrTrocaDeUsuarioNegada)}
+}
+
+func TestProgramaComTrocaDeUsuarioNegadaPublicaInfraestruturaSemRodarNada(t *testing.T) {
+	c := novoCenarioDoPrograma()
+	negador := &rodadorQueNegaATroca{}
+	relogio := &relogioDeTeste{}
+
+	codigo := Programa{
+		LerVariavel:         func(nome string) string { return c.variaveis[nome] },
+		Saida:               &c.saida,
+		Rodador:             negador,
+		DiretorioDeTrabalho: "/tmp/aprova",
+		Linguagens:          map[sandbox.Linguagem]ExecutorDeLinguagem{sandbox.LinguagemGo: c.linguagem},
+		Agora:               relogio.agora,
+	}.Executar(t.Context())
+
+	resultado := c.resultadoPublicado(t)
+	if codigo != 0 || resultado.TipoFalha != sandbox.FalhaInfraestrutura {
+		t.Fatalf("troca negada é infraestrutura entregue, obtive código %d e %+v", codigo, resultado)
+	}
+	if !strings.HasPrefix(resultado.SaidaBruta, "aprova: não foi possível rodar os testes como usuário sem privilégio") {
+		t.Errorf("a mensagem precisa nomear a causa, não o passo em que ela apareceu: %q", resultado.SaidaBruta)
+	}
+	if !strings.Contains(resultado.SaidaBruta, "uid 10001): fork/exec /usr/bin/git: operation not permitted") {
+		t.Errorf("o detalhe técnico precisa acompanhar a mensagem: %q", resultado.SaidaBruta)
+	}
+	if negador.tentativas != 1 || c.linguagem.chamadas != 0 {
+		t.Errorf("nada roda depois da troca negada: %d tentativas, %d execuções da linguagem", negador.tentativas, c.linguagem.chamadas)
 	}
 }
