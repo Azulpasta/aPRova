@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os/exec"
 	"syscall"
 	"time"
 )
+
+// ErrTrocaDeUsuarioNegada indica que o sistema recusou rodar o comando com a
+// credencial sem privilégio. O comando não rodou e não é repetido sem ela.
+var ErrTrocaDeUsuarioNegada = errors.New("processo: não foi possível rodar os testes como usuário sem privilégio")
 
 const (
 	esperaAposEncerrarPadrao = 5 * time.Second
@@ -35,6 +40,7 @@ type Opcoes struct {
 type RodadorDoSistema struct {
 	credencial         *Credencial
 	esperaAposEncerrar time.Duration
+	iniciar            func(*exec.Cmd) error
 }
 
 // NovoRodador constrói o rodador com as opções informadas.
@@ -43,7 +49,7 @@ func NovoRodador(opcoes Opcoes) *RodadorDoSistema {
 	if espera <= 0 {
 		espera = esperaAposEncerrarPadrao
 	}
-	return &RodadorDoSistema{credencial: opcoes.Credencial, esperaAposEncerrar: espera}
+	return &RodadorDoSistema{credencial: opcoes.Credencial, esperaAposEncerrar: espera, iniciar: (*exec.Cmd).Start}
 }
 
 // Rodar executa o comando com exatamente o ambiente informado e devolve stdout
@@ -61,12 +67,21 @@ func (r *RodadorDoSistema) Rodar(ctx context.Context, comando Comando) Execucao 
 	processo.WaitDelay = r.esperaAposEncerrar
 	processo.Cancel = func() error { return r.encerrarDescendentes(processo) }
 
-	err := processo.Run()
-	if processo.Process != nil {
-		r.limparRestantes(processo)
+	if err := r.iniciar(processo); err != nil {
+		return Execucao{Erro: r.explicarFalhaAoIniciar(err)}
 	}
 
+	err := processo.Wait()
+	r.limparRestantes(processo)
+
 	return interpretar(ctx, saida.Bytes(), err)
+}
+
+func (r *RodadorDoSistema) explicarFalhaAoIniciar(err error) error {
+	if r.credencial != nil && errors.Is(err, syscall.EPERM) {
+		return fmt.Errorf("%w (uid %d): %w", ErrTrocaDeUsuarioNegada, r.credencial.UID, err)
+	}
+	return err
 }
 
 func (r *RodadorDoSistema) atributosDoProcesso() *syscall.SysProcAttr {

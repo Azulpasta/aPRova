@@ -20,7 +20,9 @@ const (
 )
 
 // OpcoesExecutorLocal configura o executor que roda o sandbox em Docker local.
-// Campos vazios assumem valores padrão restritivos.
+// Campos vazios assumem valores padrão restritivos. SemCapacidadeDeTrocarDeUsuario
+// sobe o container sem SETUID e SETGID, reproduzindo um ambiente que nega a
+// troca para o usuário sem privilégio.
 type OpcoesExecutorLocal struct {
 	ImagemPorLinguagem map[Linguagem]string
 	Comando            []string
@@ -30,6 +32,8 @@ type OpcoesExecutorLocal struct {
 	LimiteMemoria      string
 	LimiteSaidaBytes   int
 	Montagens          []string
+
+	SemCapacidadeDeTrocarDeUsuario bool
 }
 
 type executorLocal struct {
@@ -109,11 +113,13 @@ func (e *executorLocal) argumentosDoRun(ctx context.Context, nomeDoContainer, im
 		"--memory", e.opcoes.LimiteMemoria,
 		"--pids-limit", limiteProcessosPadrao,
 		"--cap-drop", "ALL",
-		"--cap-add", "SETUID",
-		"--cap-add", "SETGID",
 		"--security-opt", "no-new-privileges",
 		"--read-only",
 		"--tmpfs", montagemDoTemporario,
+	}
+
+	if !e.opcoes.SemCapacidadeDeTrocarDeUsuario {
+		argumentos = append(argumentos, "--cap-add", "SETUID", "--cap-add", "SETGID")
 	}
 
 	for _, montagem := range e.opcoes.Montagens {
