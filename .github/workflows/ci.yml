@@ -103,10 +103,10 @@ jobs:
             exit 0
           fi
 
-          git diff --name-only "$faixa" > mudancas.txt
+          git diff --name-only -z "$faixa" > mudancas.txt
           resultado=$(go run ./scripts/mudou-sandbox < mudancas.txt)
           echo "arquivos alterados em $faixa:"
-          cat mudancas.txt
+          tr '\0' '\n' < mudancas.txt
           echo "sandbox=$resultado" >> "$GITHUB_OUTPUT"
 
   integracao-sandbox:
@@ -127,3 +127,28 @@ jobs:
 
       - name: integração com a imagem real do sandbox
         run: go test ./tests/integration/... -race -count=1 -v
+
+  sandbox:
+    name: sandbox
+    needs: [mudancas, integracao-sandbox]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: a integração do sandbox passou ou não era necessária
+        env:
+          MUDANCAS: ${{ needs.mudancas.result }}
+          INTEGRACAO: ${{ needs.integracao-sandbox.result }}
+        run: |
+          echo "mudancas=$MUDANCAS integracao-sandbox=$INTEGRACAO"
+          if [ "$MUDANCAS" != "success" ]; then
+            echo "não foi possível decidir se o sandbox mudou, então a integração não pode ser dada como dispensável"
+            exit 1
+          fi
+          case "$INTEGRACAO" in
+            success | skipped) ;;
+            *)
+              echo "a integração do sandbox terminou em $INTEGRACAO"
+              exit 1
+              ;;
+          esac
