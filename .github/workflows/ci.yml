@@ -50,8 +50,8 @@ jobs:
       - name: go build
         run: go build ./...
 
-      - name: go test
-        run: go test ./... -race -covermode=atomic -coverprofile=coverage.out
+      - name: go test, sem a integração do sandbox
+        run: go test $(go list ./... | grep -v /tests/integration) -race -covermode=atomic -coverprofile=coverage.out
 
       - name: govulncheck
         run: |
@@ -66,3 +66,64 @@ jobs:
           path: coverage.out
           if-no-files-found: warn
           retention-days: 30
+
+  mudancas:
+    name: mudancas
+    runs-on: ubuntu-latest
+    outputs:
+      sandbox: ${{ steps.filtro.outputs.sandbox }}
+
+    steps:
+      - name: checkout com histórico completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: o sandbox mudou?
+        id: filtro
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          ANTES: ${{ github.event.before }}
+          DEPOIS: ${{ github.sha }}
+        run: |
+          if [ "$EVENTO" = "pull_request" ]; then
+            faixa="origin/$BASE...HEAD"
+          elif [ -n "$ANTES" ] && [ "$ANTES" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
+            faixa="$ANTES..$DEPOIS"
+          else
+            echo "sem base de comparação confiável, a integração roda"
+            echo "sandbox=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only "$faixa" > mudancas.txt
+          resultado=$(go run ./scripts/mudou-sandbox < mudancas.txt)
+          echo "arquivos alterados em $faixa:"
+          cat mudancas.txt
+          echo "sandbox=$resultado" >> "$GITHUB_OUTPUT"
+
+  integracao-sandbox:
+    name: integracao-sandbox
+    needs: mudancas
+    if: needs.mudancas.outputs.sandbox == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: integração com a imagem real do sandbox
+        run: go test ./tests/integration/... -race -count=1 -v
