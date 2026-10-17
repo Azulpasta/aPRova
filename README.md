@@ -9,7 +9,7 @@ saúde e aceita o webhook, mas nenhuma dessas regras está implementada ainda.
 
 ## Requisitos
 
-- Go 1.25.14 ou superior (versão fixada na diretiva `toolchain` do `go.mod`)
+- Go 1.26.9 ou superior (versão fixada na diretiva `toolchain` do `go.mod`)
 - Docker e Docker Compose
 - golangci-lint, para o alvo `make lint`
 
@@ -206,13 +206,22 @@ vulnerabilidades da stdlib que localmente não apareciam.
 Para rodar contra exatamente o mesmo toolchain do CI:
 
 ```sh
-GOTOOLCHAIN=go1.25.14 go test ./... -race
-GOTOOLCHAIN=go1.25.14 govulncheck ./...
+GOTOOLCHAIN=go1.26.9 go test ./... -race
+GOTOOLCHAIN=go1.26.9 govulncheck ./...
 ```
 
 Ao subir a versão do Go, altere a diretiva `toolchain` no `go.mod` e refaça a
 verificação acima. Fixar um patch antigo é o mesmo que abrir mão das correções
 de segurança publicadas depois dele.
+
+O Go mantém apenas as duas linhas mais recentes. Quando sai uma nova, a mais
+antiga para de receber correções, e o `govulncheck` passa a reprovar sem que
+nenhum código tenha mudado. Foi o que aconteceu com a 1.25: as correções de
+outubro de 2026 só saíram para 1.26 e 1.27.
+
+O toolchain também não pode passar da versão do Go com que o golangci-lint foi
+compilado: o v2.13.2 foi compilado com go1.26 e recusa analisar com go1.27. Por
+isso o projeto está em 1.26.9; ir para 1.27 exige subir o golangci-lint junto.
 
 ### Proteção da branch principal
 
