@@ -24,13 +24,15 @@ var (
 	linguagensConhecidas = []sandbox.Linguagem{sandbox.LinguagemGo, sandbox.LinguagemPython, sandbox.LinguagemJava}
 )
 
-// Ambiente é o pedido recebido pelo executor de dentro do container.
+// Ambiente é o pedido recebido pelo executor de dentro do container. Diretorio
+// é o caminho do projeto dentro do repositório, vazio para a raiz.
 type Ambiente struct {
 	Repositorio string
 	SHA         string
 	Linguagem   sandbox.Linguagem
 	TaskRunID   string
 	Prazo       time.Duration
+	Diretorio   string
 }
 
 type leitorDeAmbiente struct {
@@ -49,6 +51,7 @@ func LerAmbiente(ler func(string) string) (Ambiente, error) {
 		Linguagem:   leitura.linguagem("APROVA_LINGUAGEM"),
 		TaskRunID:   leitura.obrigatoria("APROVA_TASK_RUN_ID"),
 		Prazo:       leitura.prazo("APROVA_PRAZO_SEGUNDOS"),
+		Diretorio:   leitura.diretorio("APROVA_DIRETORIO"),
 	}
 
 	if len(leitura.pendencias) > 0 {
@@ -110,6 +113,14 @@ func (l *leitorDeAmbiente) prazo(nome string) time.Duration {
 		return 0
 	}
 	return prazo
+}
+
+func (l *leitorDeAmbiente) diretorio(nome string) string {
+	valor := l.ler(nome)
+	if err := sandbox.ValidarDiretorioDoProjeto(valor); err != nil {
+		l.pendenciar("%s: %v", nome, err)
+	}
+	return valor
 }
 
 func (l *leitorDeAmbiente) pendenciar(formato string, argumentos ...any) {

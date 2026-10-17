@@ -77,7 +77,12 @@ func (p Programa) rodarPedido(ctx context.Context, inicio time.Time) sandbox.Res
 		return falhaDeInfraestrutura(err)
 	}
 
-	return linguagem.Executar(ctx, diretorio, prazoFinal)
+	projeto, err := localizarProjeto(diretorio, ambiente.Diretorio)
+	if err != nil {
+		return falhaDeInfraestrutura(err)
+	}
+
+	return linguagem.Executar(ctx, projeto, prazoFinal)
 }
 
 func (p Programa) entregar(ctx context.Context, publicador PublicadorResultado, taskRunID string, inicio time.Time, resultado sandbox.ResultadoSandbox) int {

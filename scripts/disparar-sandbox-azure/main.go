@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Azulpasta/aPRova/internal/config"
+	"github.com/Azulpasta/aPRova/internal/sandbox"
 	"github.com/Azulpasta/aPRova/internal/sandbox/jobsazure"
 )
 
@@ -25,6 +26,7 @@ var formatoDoSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
 type disparo struct {
 	repositorio string
 	sha         string
+	diretorio   string
 }
 
 func main() {
@@ -68,8 +70,8 @@ func executar() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("execução disparada: %s (task_run_id %s, imagem %s)\n",
-		idExecucao, variaveis["APROVA_TASK_RUN_ID"], configuracao.SandboxImagemGo)
+	fmt.Printf("execução disparada: %s (task_run_id %s, imagem %s, diretório %q)\n",
+		idExecucao, variaveis["APROVA_TASK_RUN_ID"], configuracao.SandboxImagemGo, pedido.diretorio)
 
 	statusFinal, err := acompanhar(ctx, cliente, idExecucao)
 	if err != nil {
@@ -85,8 +87,8 @@ func executar() error {
 }
 
 func lerArgumentos(argumentos []string) (disparo, error) {
-	if len(argumentos) != 3 {
-		return disparo{}, fmt.Errorf("uso: %s <url_https_do_repositorio> <sha_completo>", argumentos[0])
+	if len(argumentos) != 3 && len(argumentos) != 4 {
+		return disparo{}, fmt.Errorf("uso: %s <url_https_do_repositorio> <sha_completo> [diretorio_do_projeto]", argumentos[0])
 	}
 
 	endereco, err := url.Parse(argumentos[1])
@@ -99,7 +101,15 @@ func lerArgumentos(argumentos []string) (disparo, error) {
 		return disparo{}, fmt.Errorf("o SHA precisa ter os 40 caracteres hexadecimais, recebi %q", argumentos[2])
 	}
 
-	return disparo{repositorio: argumentos[1], sha: sha}, nil
+	pedido := disparo{repositorio: argumentos[1], sha: sha}
+	if len(argumentos) == 4 {
+		pedido.diretorio = argumentos[3]
+	}
+	if err := sandbox.ValidarDiretorioDoProjeto(pedido.diretorio); err != nil {
+		return disparo{}, err
+	}
+
+	return pedido, nil
 }
 
 func variaveisDoDisparo(pedido disparo, momento time.Time) map[string]string {
@@ -110,6 +120,7 @@ func variaveisDoDisparo(pedido disparo, momento time.Time) map[string]string {
 		"APROVA_TASK_RUN_ID":    "verificacao-manual-" + momento.UTC().Format("20060102T150405Z"),
 		"APROVA_PRAZO_SEGUNDOS": prazoDaExecucao,
 		"APROVA_SAIDA":          "stdout",
+		"APROVA_DIRETORIO":      pedido.diretorio,
 	}
 }
 
