@@ -9,7 +9,8 @@ import (
 )
 
 // ErrProjetoInacessivel indica diretório do projeto ausente, que não é
-// diretório ou que, resolvido, fica fora do repositório clonado.
+// diretório, que passa por link simbólico ou que, resolvido, fica fora do
+// repositório clonado.
 var ErrProjetoInacessivel = errors.New("sandbox: diretório do projeto inacessível")
 
 func localizarProjeto(repositorio, diretorio string) (string, error) {
@@ -18,6 +19,9 @@ func localizarProjeto(repositorio, diretorio string) (string, error) {
 	}
 
 	projeto := filepath.Join(repositorio, filepath.FromSlash(diretorio))
+	if err := exigirSemLinks(repositorio, diretorio); err != nil {
+		return "", err
+	}
 
 	raizReal, err := filepath.EvalSymlinks(repositorio)
 	if err != nil {
@@ -38,6 +42,22 @@ func localizarProjeto(repositorio, diretorio string) (string, error) {
 	}
 
 	return projeto, nil
+}
+
+func exigirSemLinks(repositorio, diretorio string) error {
+	caminho := repositorio
+	for _, componente := range strings.Split(diretorio, "/") {
+		caminho = filepath.Join(caminho, componente)
+
+		informacao, err := os.Lstat(caminho)
+		if err != nil {
+			return fmt.Errorf("%w: %s não existe no repositório", ErrProjetoInacessivel, diretorio)
+		}
+		if informacao.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%w: %s passa por um link simbólico; o diretório do projeto precisa ser um diretório real do repositório", ErrProjetoInacessivel, diretorio)
+		}
+	}
+	return nil
 }
 
 func estaDentro(raiz, caminho string) bool {
