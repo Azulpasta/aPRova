@@ -59,6 +59,7 @@ type Configuracao struct {
 	GCPProjectID    string
 	GCPRegiao       string
 	SandboxExecutor string
+	SandboxImagemGo string
 
 	AzureSubscriptionID   string
 	AzureTenantID         string
@@ -102,6 +103,7 @@ func Carregar() (Configuracao, error) {
 		GCPProjectID:    leitura.opcional("GCP_PROJECT_ID", ""),
 		GCPRegiao:       leitura.opcional("GCP_REGION", regiaoPadrao),
 		SandboxExecutor: lerVariavel("SANDBOX_EXECUTOR"),
+		SandboxImagemGo: leitura.opcional("SANDBOX_IMAGEM_GO", ""),
 
 		AzureSubscriptionID:   lerVariavel("AZURE_SUBSCRIPTION_ID"),
 		AzureTenantID:         lerVariavel("AZURE_TENANT_ID"),
