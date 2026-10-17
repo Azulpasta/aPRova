@@ -2,7 +2,7 @@ COMPOSE ?= docker-compose
 POSTGRES_USER ?= aprova
 POSTGRES_DB ?= aprova
 
-.PHONY: up down migrate run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao
+.PHONY: up down migrate run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao imagem-sandbox-go
 
 up:
 	$(COMPOSE) up -d --wait
@@ -29,7 +29,10 @@ verificar-token:
 	@go run ./scripts/verificar-token $(INSTALLATION_ID)
 
 sandbox-azure:
-	@go run ./scripts/disparar-sandbox-azure
+	@go run ./scripts/disparar-sandbox-azure $(REPOSITORIO) $(SHA)
+
+imagem-sandbox-go:
+	docker build -f imagens/go/Dockerfile -t aprova-sandbox-go:local .
 
 consultar-permissao:
 	@go run ./scripts/consultar-permissao $(INSTALLATION_ID) $(REPOSITORIO) $(LOGIN)

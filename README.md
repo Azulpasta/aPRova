@@ -29,7 +29,16 @@ variável obrigatória falha na inicialização, com uma mensagem que nomeia a
 variável e diz onde obter o valor.
 
 `SANDBOX_EXECUTOR` aceita `local` (Docker nesta máquina) ou `azure` (Azure
-Container Apps Jobs, que exige as seis variáveis `AZURE_*`).
+Container Apps Jobs, que exige as seis variáveis `AZURE_*`). A imagem que roda
+os testes de repositórios Go vem de `SANDBOX_IMAGEM_GO`; veja
+[imagens/go/README.md](imagens/go/README.md) para construir a imagem e entender
+por que o código do PR não consegue forjar o próprio resultado.
+
+Para disparar o job real na Azure contra um SHA e ver o status final:
+
+```sh
+make sandbox-azure REPOSITORIO=https://github.com/dono/repo.git SHA=<sha_completo>
+```
 
 ### Chaves de assinatura dos recibos
 
@@ -139,7 +148,7 @@ make consultar-permissao INSTALLATION_ID=12345678 REPOSITORIO=dono/repo LOGIN=al
 
 Testes unitários ficam no mesmo pacote do código testado, como arquivos
 `*_test.go`. O diretório `tests/` é reservado para testes que cruzam pacotes ou
-dependem de serviço externo: `tests/integration` (Postgres e Redis reais),
+dependem de serviço externo: `tests/integration` (Docker real, com a imagem do sandbox; pulam sem Docker),
 `tests/functional` (requisitos de negócio ponta a ponta) e `tests/e2e` (contra
 Pull Request real).
 

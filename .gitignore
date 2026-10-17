@@ -35,3 +35,6 @@ profile.out
 .idea/
 .vscode/
 *.swp
+
+# Repositórios temporários dos testes de integração do sandbox
+tests/integration/.repositorios-*

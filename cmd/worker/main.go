@@ -58,15 +58,19 @@ func executar() error {
 }
 
 func configuracaoDoSandbox(configuracao config.Configuracao) sandbox.ConfiguracaoExecutor {
+	imagens := map[sandbox.Linguagem]string{sandbox.LinguagemGo: configuracao.SandboxImagemGo}
+
 	return sandbox.ConfiguracaoExecutor{
-		Tipo: configuracao.SandboxExecutor,
+		Tipo:  configuracao.SandboxExecutor,
+		Local: sandbox.OpcoesExecutorLocal{ImagemPorLinguagem: imagens},
 		Azure: sandbox.OpcoesExecutorAzure{
-			SubscriptionID: configuracao.AzureSubscriptionID,
-			TenantID:       configuracao.AzureTenantID,
-			ClientID:       configuracao.AzureClientID,
-			ClientSecret:   configuracao.AzureClientSecret,
-			ResourceGroup:  configuracao.AzureResourceGroup,
-			NomeDoJob:      configuracao.AzureNomeDoJobSandbox,
+			ImagemPorLinguagem: imagens,
+			SubscriptionID:     configuracao.AzureSubscriptionID,
+			TenantID:           configuracao.AzureTenantID,
+			ClientID:           configuracao.AzureClientID,
+			ClientSecret:       configuracao.AzureClientSecret,
+			ResourceGroup:      configuracao.AzureResourceGroup,
+			NomeDoJob:          configuracao.AzureNomeDoJobSandbox,
 		},
 		Coletor: sandbox.NovoColetorEmMemoria(),
 	}
