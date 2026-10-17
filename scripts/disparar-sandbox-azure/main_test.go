@@ -70,6 +70,19 @@ func TestVariaveisDoDisparoPedemOResultadoNoStdout(t *testing.T) {
 	}
 }
 
+func TestDisparoSemDiretorioUsaARaiz(t *testing.T) {
+	pedido, err := lerArgumentos([]string{"disparar", "https://github.com/Azulpasta/loja.git", shaDoFrete})
+	if err != nil {
+		t.Fatalf("argumentos válidos não deveriam falhar: %v", err)
+	}
+
+	variaveis := variaveisDoDisparo(pedido, time.Now())
+
+	if diretorio, presente := variaveis["APROVA_DIRETORIO"]; !presente || diretorio != "" {
+		t.Errorf("sem o quarto argumento, APROVA_DIRETORIO vai vazio, a raiz; obtive %q (presente=%v)", diretorio, presente)
+	}
+}
+
 func TestExigirImagemRecusaImagemSemTagOuComLatest(t *testing.T) {
 	for _, imagem := range []string{"", "aprova.azurecr.io/aprova-sandbox-go", "aprova.azurecr.io/aprova-sandbox-go:latest"} {
 		if err := exigirImagem(imagem); err == nil || !strings.Contains(err.Error(), "SANDBOX_IMAGEM_GO") {

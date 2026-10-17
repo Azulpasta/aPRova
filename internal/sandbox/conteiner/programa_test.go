@@ -345,7 +345,7 @@ func TestProgramaRecusaDiretorioDoProjetoQueApontaParaForaDoRepositorio(t *testi
 	c.executarEm(t, trabalho)
 
 	resultado := c.resultadoPublicado(t)
-	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "fora do repositório") {
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "link simbólico") {
 		t.Errorf("um link simbólico do PR não pode levar os testes para fora do clone, obtive %+v", resultado)
 	}
 	if c.linguagem.chamadas != 0 {
@@ -366,5 +366,50 @@ func TestProgramaRecusaDiretorioDoProjetoQueEArquivo(t *testing.T) {
 
 	if resultado := c.resultadoPublicado(t); resultado.TipoFalha != sandbox.FalhaInfraestrutura || c.linguagem.chamadas != 0 {
 		t.Errorf("obtive %+v com %d execuções", resultado, c.linguagem.chamadas)
+	}
+}
+
+func TestProgramaRecusaDiretorioDoProjetoQueELinkParaDentroDoRepositorio(t *testing.T) {
+	casos := []struct {
+		nome      string
+		diretorio string
+		montar    func(t *testing.T, repositorio string)
+	}{
+		{"go aponta para a raiz", "go", func(t *testing.T, repositorio string) {
+			if err := os.Symlink(".", filepath.Join(repositorio, "go")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"go aponta para outro módulo", "go", func(t *testing.T, repositorio string) {
+			criarDiretorio(t, repositorio, "modulo-vazio")
+			if err := os.Symlink("modulo-vazio", filepath.Join(repositorio, "go")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"um componente intermediário é link", "servicos/frete", func(t *testing.T, repositorio string) {
+			criarDiretorio(t, repositorio, "outro", "frete")
+			if err := os.Symlink("outro", filepath.Join(repositorio, "servicos")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nome, func(t *testing.T) {
+			trabalho := t.TempDir()
+			caso.montar(t, criarDiretorio(t, trabalho, "repositorio"))
+			c := novoCenarioDoPrograma()
+			c.variaveis["APROVA_DIRETORIO"] = caso.diretorio
+
+			c.executarEm(t, trabalho)
+
+			resultado := c.resultadoPublicado(t)
+			if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "link simbólico") {
+				t.Errorf("o diretório configurado precisa ser um diretório real, obtive %+v", resultado)
+			}
+			if c.linguagem.chamadas != 0 {
+				t.Error("nenhum projeto pode ser testado pelo caminho de um link")
+			}
+		})
 	}
 }

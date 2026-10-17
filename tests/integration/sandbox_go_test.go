@@ -291,7 +291,7 @@ func TestSandboxGoRecusaDiretorioQueOPRTrocouPorLinkParaForaDoClone(t *testing.T
 		caso: "subdiretorio", prazo: prazoDeUmCasoComum, diretorio: "go", ajustar: trocarPorLink,
 	})
 
-	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "fora do repositório") {
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "link simbólico") {
 		t.Errorf("o link commitado pelo PR não pode levar os testes para fora do clone: %+v", resultado)
 	}
 }
