@@ -21,7 +21,7 @@ func ambienteLimpo(t *testing.T) {
 		"SANDBOX_EXECUTOR", "N8N_WEBHOOK_URL",
 		"AZURE_SUBSCRIPTION_ID", "AZURE_TENANT_ID", "AZURE_CLIENT_ID",
 		"AZURE_CLIENT_SECRET", "AZURE_RESOURCE_GROUP", "AZURE_SANDBOX_JOB_NAME",
-		"N8N_SEGREDO_ACOES", "SLACK_GITHUB_VINCULOS",
+		"N8N_SEGREDO_ACOES", "SLACK_GITHUB_VINCULOS", "SANDBOX_IMAGEM_GO",
 	} {
 		t.Setenv(variavel, "")
 	}
@@ -155,6 +155,20 @@ func TestCarregarLeAsCredenciaisDaAzure(t *testing.T) {
 		if obtidas[nome] != valor {
 			t.Errorf("%s deveria ser %q, obtive %q", nome, valor, obtidas[nome])
 		}
+	}
+}
+
+func TestCarregarLeAImagemDoSandboxGo(t *testing.T) {
+	ambienteMinimoValido(t)
+	t.Setenv("SANDBOX_IMAGEM_GO", "aprova.azurecr.io/sandbox-go:3f2c1e0")
+
+	configuracao, err := Carregar()
+	if err != nil {
+		t.Fatalf("carregar: %v", err)
+	}
+
+	if configuracao.SandboxImagemGo != "aprova.azurecr.io/sandbox-go:3f2c1e0" {
+		t.Errorf("imagem lida errada: %q", configuracao.SandboxImagemGo)
 	}
 }
 
