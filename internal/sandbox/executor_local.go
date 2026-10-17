@@ -12,8 +12,8 @@ const (
 	binarioDockerPadrao = "docker"
 	tempoLimiteRemocao  = 15 * time.Second
 
-	usuarioSemPrivilegio  = "65534:65534"
 	redePadrao            = "none"
+	montagemDoTemporario  = "/tmp:rw,exec,nosuid,nodev,size=1g"
 	limiteCPUPadrao       = "1"
 	limiteMemoriaPadrao   = "1g"
 	limiteProcessosPadrao = "256"
@@ -29,6 +29,7 @@ type OpcoesExecutorLocal struct {
 	LimiteCPU          string
 	LimiteMemoria      string
 	LimiteSaidaBytes   int
+	Montagens          []string
 }
 
 type executorLocal struct {
@@ -72,42 +73,54 @@ func (e *executorLocal) Executar(ctx context.Context, pedido PedidoExecucao) (Re
 
 	nomeDoContainer := gerarNomeDeContainer()
 	inicio := time.Now()
-	execucao, err := e.comando.executar(ctx, e.opcoes.BinarioDocker, e.argumentosDoRun(nomeDoContainer, imagem, pedido)...)
+	execucao, err := e.comando.executar(ctx, e.opcoes.BinarioDocker, e.argumentosDoRun(ctx, nomeDoContainer, imagem, pedido)...)
 	duracaoMS := time.Since(inicio).Milliseconds()
-	saida := truncarMantendoFinal(execucao.saida, e.opcoes.LimiteSaidaBytes)
+	saidaCompleta := truncarMantendoFinal(execucao.saida+execucao.erros, e.opcoes.LimiteSaidaBytes)
 
 	if ctx.Err() != nil {
 		diario.Warn("execução excedeu o prazo, removendo container", "container", nomeDoContainer)
 		e.removerContainer(ctx, nomeDoContainer)
-		return resultadoDeInfraestrutura(saida, duracaoMS), nil
+		return resultadoDeInfraestrutura(saidaCompleta, duracaoMS), nil
 	}
 	if err != nil {
 		diario.Error("docker não pôde ser executado", "erro", err)
-		return resultadoDeInfraestrutura(saida, duracaoMS), nil
+		return resultadoDeInfraestrutura(saidaCompleta, duracaoMS), nil
 	}
 
-	tipo, compilou := classificarCodigoDeSaida(execucao.codigo)
-	diario.Info("execução concluída", "codigo_saida", execucao.codigo, "tipo_falha", tipo, "duracao_ms", duracaoMS)
+	resultado, publicado := interpretarResultadoPublicado(execucao.saida)
+	if !publicado {
+		diario.Error("o container terminou sem publicar resultado válido", "codigo_saida", execucao.codigo)
+		return resultadoDeInfraestrutura(saidaCompleta, duracaoMS), nil
+	}
 
-	return ResultadoSandbox{Compilou: compilou, SaidaBruta: saida, DuracaoMS: duracaoMS, TipoFalha: tipo}, nil
+	resultado.SaidaBruta = truncarMantendoFinal(resultado.SaidaBruta, e.opcoes.LimiteSaidaBytes)
+	resultado.DuracaoMS = duracaoMS
+	diario.Info("execução concluída", "codigo_saida", execucao.codigo, "tipo_falha", resultado.TipoFalha, "duracao_ms", duracaoMS)
+
+	return resultado, nil
 }
 
-func (e *executorLocal) argumentosDoRun(nomeDoContainer, imagem string, pedido PedidoExecucao) []string {
+func (e *executorLocal) argumentosDoRun(ctx context.Context, nomeDoContainer, imagem string, pedido PedidoExecucao) []string {
 	argumentos := []string{
 		"run", "--rm",
 		"--name", nomeDoContainer,
-		"--user", usuarioSemPrivilegio,
 		"--network", e.opcoes.Rede,
 		"--cpus", e.opcoes.LimiteCPU,
 		"--memory", e.opcoes.LimiteMemoria,
 		"--pids-limit", limiteProcessosPadrao,
 		"--cap-drop", "ALL",
+		"--cap-add", "SETUID",
+		"--cap-add", "SETGID",
 		"--security-opt", "no-new-privileges",
 		"--read-only",
-		"--tmpfs", "/tmp",
+		"--tmpfs", montagemDoTemporario,
 	}
 
-	for _, variavel := range variaveisDoPedido(pedido) {
+	for _, montagem := range e.opcoes.Montagens {
+		argumentos = append(argumentos, "-v", montagem)
+	}
+
+	for _, variavel := range variaveisDoContainer(ctx, pedido, "stdout") {
 		argumentos = append(argumentos, "-e", variavel.nome+"="+variavel.valor)
 	}
 

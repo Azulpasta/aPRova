@@ -16,3 +16,9 @@ func truncarMantendoFinal(saida string, limite int) string {
 
 	return saida[inicio:]
 }
+
+// LimitarSaida reduz a saída ao limite padrão do ResultadoSandbox, mantendo o
+// final, onde costumam estar o erro e o resumo dos testes.
+func LimitarSaida(saida string) string {
+	return truncarMantendoFinal(saida, limiteSaidaPadrao)
+}

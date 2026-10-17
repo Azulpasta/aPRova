@@ -26,18 +26,19 @@ const (
 // OpcoesExecutorAzure configura o executor que dispara o job do sandbox no
 // Azure Container Apps. Intervalo e prazo vazios assumem valores padrão.
 type OpcoesExecutorAzure struct {
-	SubscriptionID    string
-	TenantID          string
-	ClientID          string
-	ClientSecret      string
-	ResourceGroup     string
-	NomeDoJob         string
-	IntervaloConsulta time.Duration
-	PrazoInicio       time.Duration
+	SubscriptionID     string
+	TenantID           string
+	ClientID           string
+	ClientSecret       string
+	ResourceGroup      string
+	NomeDoJob          string
+	IntervaloConsulta  time.Duration
+	PrazoInicio        time.Duration
+	ImagemPorLinguagem map[Linguagem]string
 }
 
 type clienteDeJobs interface {
-	Iniciar(ctx context.Context, variaveis map[string]string) (string, error)
+	Iniciar(ctx context.Context, imagem string, variaveis map[string]string) (string, error)
 	Status(ctx context.Context, idExecucao string) (string, error)
 	Parar(ctx context.Context, idExecucao string) error
 }
@@ -66,7 +67,13 @@ func (e *executorAzure) Executar(ctx context.Context, pedido PedidoExecucao) (Re
 	diario := slog.With("task_run_id", pedido.TaskRunID, "executor", "azure")
 	inicio := time.Now()
 
-	idExecucao, err := e.cliente.Iniciar(ctx, mapaDeVariaveis(pedido))
+	imagem := e.opcoes.ImagemPorLinguagem[pedido.Linguagem]
+	if imagem == "" {
+		diario.Error("nenhuma imagem configurada para a linguagem", "linguagem", pedido.Linguagem)
+		return resultadoDeInfraestrutura("", 0), nil
+	}
+
+	idExecucao, err := e.cliente.Iniciar(ctx, imagem, mapaDeVariaveis(ctx, pedido))
 	if err != nil {
 		diario.Error("falha ao disparar o job na azure", "erro", err)
 		return resultadoDeInfraestrutura("", time.Since(inicio).Milliseconds()), nil
@@ -149,9 +156,9 @@ func interpretarStatusAzure(status string) situacaoExecucao {
 	}
 }
 
-func mapaDeVariaveis(pedido PedidoExecucao) map[string]string {
+func mapaDeVariaveis(ctx context.Context, pedido PedidoExecucao) map[string]string {
 	mapa := map[string]string{}
-	for _, variavel := range variaveisDoPedido(pedido) {
+	for _, variavel := range variaveisDoContainer(ctx, pedido, "coletor") {
 		mapa[variavel.nome] = variavel.valor
 	}
 	return mapa

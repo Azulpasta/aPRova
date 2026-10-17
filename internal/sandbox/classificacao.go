@@ -1,22 +1,25 @@
 package sandbox
 
-const (
-	codigoSucesso           = 0
-	codigoFalhaDeTeste      = 1
-	codigoFalhaDeCompilacao = 2
+import (
+	"encoding/json"
+	"slices"
+	"strings"
 )
 
-func classificarCodigoDeSaida(codigo int) (tipo TipoFalha, compilou bool) {
-	switch codigo {
-	case codigoSucesso:
-		return FalhaNenhuma, true
-	case codigoFalhaDeTeste:
-		return FalhaTeste, true
-	case codigoFalhaDeCompilacao:
-		return FalhaCompilacao, false
-	default:
-		return FalhaInfraestrutura, false
+var tiposDeFalhaConhecidos = []TipoFalha{FalhaNenhuma, FalhaTeste, FalhaCompilacao, FalhaInfraestrutura}
+
+func interpretarResultadoPublicado(stdout string) (ResultadoSandbox, bool) {
+	linhas := strings.Split(strings.TrimSpace(stdout), "\n")
+	ultima := linhas[len(linhas)-1]
+
+	var resultado ResultadoSandbox
+	if err := json.Unmarshal([]byte(ultima), &resultado); err != nil {
+		return ResultadoSandbox{}, false
 	}
+	if !slices.Contains(tiposDeFalhaConhecidos, resultado.TipoFalha) {
+		return ResultadoSandbox{}, false
+	}
+	return resultado, true
 }
 
 func resultadoDeInfraestrutura(saida string, duracaoMS int64) ResultadoSandbox {

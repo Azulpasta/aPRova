@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 
 type resultadoComando struct {
 	saida  string
+	erros  string
 	codigo int
 }
 
@@ -18,12 +20,19 @@ type executorDeComando interface {
 type comandoDoSistema struct{}
 
 func (comandoDoSistema) executar(ctx context.Context, binario string, argumentos ...string) (resultadoComando, error) {
-	saida, err := exec.CommandContext(ctx, binario, argumentos...).CombinedOutput()
+	var saida, erros bytes.Buffer
+	processo := exec.CommandContext(ctx, binario, argumentos...)
+	processo.Stdout = &saida
+	processo.Stderr = &erros
+
+	err := processo.Run()
+	resultado := resultadoComando{saida: saida.String(), erros: erros.String()}
 
 	var saiuComErro *exec.ExitError
 	if errors.As(err, &saiuComErro) && ctx.Err() == nil {
-		return resultadoComando{saida: string(saida), codigo: saiuComErro.ExitCode()}, nil
+		resultado.codigo = saiuComErro.ExitCode()
+		return resultado, nil
 	}
 
-	return resultadoComando{saida: string(saida)}, err
+	return resultado, err
 }

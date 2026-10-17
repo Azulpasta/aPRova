@@ -55,17 +55,17 @@ func NovoCliente(credenciais Credenciais) (*Cliente, error) {
 	}, nil
 }
 
-// Iniciar dispara uma execução do job sobrescrevendo as variáveis informadas
-// e preservando o restante da definição dos containers. Devolve o nome da
-// execução.
-func (c *Cliente) Iniciar(ctx context.Context, variaveis map[string]string) (string, error) {
+// Iniciar dispara uma execução do job sobrescrevendo a imagem, quando
+// informada, e as variáveis, preservando o restante da definição dos
+// containers. Devolve o nome da execução.
+func (c *Cliente) Iniciar(ctx context.Context, imagem string, variaveis map[string]string) (string, error) {
 	modelo, err := c.containersDoJob(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	poller, err := c.jobs.BeginStart(ctx, c.resourceGroup, c.nomeDoJob, &armappcontainers.JobsClientBeginStartOptions{
-		Template: &armappcontainers.JobExecutionTemplate{Containers: containersDaExecucao(modelo, variaveis)},
+		Template: &armappcontainers.JobExecutionTemplate{Containers: containersDaExecucao(modelo, imagem, variaveis)},
 	})
 	if err != nil {
 		return "", fmt.Errorf("disparar execução do job: %w", err)
@@ -121,12 +121,12 @@ func (c *Cliente) containersDoJob(ctx context.Context) ([]*armappcontainers.Cont
 	return resposta.Properties.Template.Containers, nil
 }
 
-func containersDaExecucao(modelo []*armappcontainers.Container, variaveis map[string]string) []*armappcontainers.JobExecutionContainer {
+func containersDaExecucao(modelo []*armappcontainers.Container, imagem string, variaveis map[string]string) []*armappcontainers.JobExecutionContainer {
 	execucao := make([]*armappcontainers.JobExecutionContainer, 0, len(modelo))
 	for _, container := range modelo {
 		execucao = append(execucao, &armappcontainers.JobExecutionContainer{
 			Name:      container.Name,
-			Image:     container.Image,
+			Image:     imagemOuDoTemplate(imagem, container.Image),
 			Command:   container.Command,
 			Args:      container.Args,
 			Resources: container.Resources,
@@ -134,6 +134,13 @@ func containersDaExecucao(modelo []*armappcontainers.Container, variaveis map[st
 		})
 	}
 	return execucao
+}
+
+func imagemOuDoTemplate(imagem string, doTemplate *string) *string {
+	if imagem == "" {
+		return doTemplate
+	}
+	return &imagem
 }
 
 func mesclarVariaveis(doJob []*armappcontainers.EnvironmentVar, doPedido map[string]string) []*armappcontainers.EnvironmentVar {
