@@ -1,0 +1,11 @@
+{"Time":"2026-10-07T19:54:10.462317-03:00","Action":"start","Package":"exemplo.local/semtestes"}
+{"Time":"2026-10-07T19:54:10.462474-03:00","Action":"start","Package":"exemplo.local/semtestes/util"}
+{"Time":"2026-10-07T19:54:10.462506-03:00","Action":"output","Package":"exemplo.local/semtestes/util","Output":"?   \texemplo.local/semtestes/util\t[no test files]\n"}
+{"Time":"2026-10-07T19:54:10.462528-03:00","Action":"skip","Package":"exemplo.local/semtestes/util","Elapsed":0}
+{"Time":"2026-10-07T19:54:10.469326-03:00","Action":"run","Package":"exemplo.local/semtestes","Test":"TestSoma"}
+{"Time":"2026-10-07T19:54:10.469378-03:00","Action":"output","Package":"exemplo.local/semtestes","Test":"TestSoma","Output":"=== RUN   TestSoma\n"}
+{"Time":"2026-10-07T19:54:10.469407-03:00","Action":"output","Package":"exemplo.local/semtestes","Test":"TestSoma","Output":"--- PASS: TestSoma (0.00s)\n"}
+{"Time":"2026-10-07T19:54:10.469416-03:00","Action":"pass","Package":"exemplo.local/semtestes","Test":"TestSoma","Elapsed":0}
+{"Time":"2026-10-07T19:54:10.469427-03:00","Action":"output","Package":"exemplo.local/semtestes","Output":"PASS\n"}
+{"Time":"2026-10-07T19:54:10.469763-03:00","Action":"output","Package":"exemplo.local/semtestes","Output":"ok  \texemplo.local/semtestes\t0.007s\n"}
+{"Time":"2026-10-07T19:54:10.47052-03:00","Action":"pass","Package":"exemplo.local/semtestes","Elapsed":0.008}

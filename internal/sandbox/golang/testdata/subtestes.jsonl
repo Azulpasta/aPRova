@@ -1,0 +1,45 @@
+{"Time":"2026-10-07T19:54:09.800218-03:00","Action":"start","Package":"exemplo.local/subtestes"}
+{"Time":"2026-10-07T19:54:09.809278-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela"}
+{"Time":"2026-10-07T19:54:09.809359-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela","Output":"=== RUN   TestTabela\n"}
+{"Time":"2026-10-07T19:54:09.809399-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/um"}
+{"Time":"2026-10-07T19:54:09.809411-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/um","Output":"=== RUN   TestTabela/um\n"}
+{"Time":"2026-10-07T19:54:09.809423-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/um/aninhado"}
+{"Time":"2026-10-07T19:54:09.809432-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/um/aninhado","Output":"=== RUN   TestTabela/um/aninhado\n"}
+{"Time":"2026-10-07T19:54:09.809443-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/um/aninhado","Output":"--- PASS: TestTabela/um/aninhado (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809472-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/um/aninhado","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809483-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/um","Output":"--- PASS: TestTabela/um (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.80949-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/um","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809499-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/dois"}
+{"Time":"2026-10-07T19:54:09.809505-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/dois","Output":"=== RUN   TestTabela/dois\n"}
+{"Time":"2026-10-07T19:54:09.809512-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/dois/aninhado"}
+{"Time":"2026-10-07T19:54:09.809518-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/dois/aninhado","Output":"=== RUN   TestTabela/dois/aninhado\n"}
+{"Time":"2026-10-07T19:54:09.809527-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/dois/aninhado","Output":"--- PASS: TestTabela/dois/aninhado (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809534-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/dois/aninhado","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.80954-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/dois","Output":"--- PASS: TestTabela/dois (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809548-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/dois","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809555-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/tres"}
+{"Time":"2026-10-07T19:54:09.809562-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/tres","Output":"=== RUN   TestTabela/tres\n"}
+{"Time":"2026-10-07T19:54:09.80957-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestTabela/tres/aninhado"}
+{"Time":"2026-10-07T19:54:09.809577-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/tres/aninhado","Output":"=== RUN   TestTabela/tres/aninhado\n"}
+{"Time":"2026-10-07T19:54:09.809584-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/tres/aninhado","Output":"--- PASS: TestTabela/tres/aninhado (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809591-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/tres/aninhado","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.8096-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela/tres","Output":"--- PASS: TestTabela/tres (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809607-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela/tres","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809615-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestTabela","Output":"--- PASS: TestTabela (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809644-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestTabela","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809649-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho"}
+{"Time":"2026-10-07T19:54:09.809654-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho","Output":"=== RUN   TestComSubtesteFalho\n"}
+{"Time":"2026-10-07T19:54:09.809659-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/ok"}
+{"Time":"2026-10-07T19:54:09.809664-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/ok","Output":"=== RUN   TestComSubtesteFalho/ok\n"}
+{"Time":"2026-10-07T19:54:09.80967-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/ok","Output":"--- PASS: TestComSubtesteFalho/ok (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809675-03:00","Action":"pass","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/ok","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.80968-03:00","Action":"run","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/quebra"}
+{"Time":"2026-10-07T19:54:09.809685-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/quebra","Output":"=== RUN   TestComSubtesteFalho/quebra\n"}
+{"Time":"2026-10-07T19:54:09.809699-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/quebra","Output":"    soma_test.go:15: subteste falhou\n"}
+{"Time":"2026-10-07T19:54:09.809706-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/quebra","Output":"--- FAIL: TestComSubtesteFalho/quebra (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.809711-03:00","Action":"fail","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho/quebra","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809723-03:00","Action":"output","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho","Output":"--- FAIL: TestComSubtesteFalho (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.80973-03:00","Action":"fail","Package":"exemplo.local/subtestes","Test":"TestComSubtesteFalho","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.809735-03:00","Action":"output","Package":"exemplo.local/subtestes","Output":"FAIL\n"}
+{"Time":"2026-10-07T19:54:09.810051-03:00","Action":"output","Package":"exemplo.local/subtestes","Output":"FAIL\texemplo.local/subtestes\t0.009s\n"}
+{"Time":"2026-10-07T19:54:09.810082-03:00","Action":"fail","Package":"exemplo.local/subtestes","Elapsed":0.01}

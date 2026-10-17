@@ -1,0 +1,17 @@
+{"Time":"2026-10-07T19:54:09.493593-03:00","Action":"start","Package":"exemplo.local/umfalho"}
+{"Time":"2026-10-07T19:54:09.502695-03:00","Action":"run","Package":"exemplo.local/umfalho","Test":"TestSomaPositivos"}
+{"Time":"2026-10-07T19:54:09.502806-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestSomaPositivos","Output":"=== RUN   TestSomaPositivos\n"}
+{"Time":"2026-10-07T19:54:09.50287-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestSomaPositivos","Output":"--- PASS: TestSomaPositivos (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.502883-03:00","Action":"pass","Package":"exemplo.local/umfalho","Test":"TestSomaPositivos","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.502899-03:00","Action":"run","Package":"exemplo.local/umfalho","Test":"TestFrete"}
+{"Time":"2026-10-07T19:54:09.502907-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestFrete","Output":"=== RUN   TestFrete\n"}
+{"Time":"2026-10-07T19:54:09.50292-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestFrete","Output":"    soma_test.go:6: frete: esperava 16, obtive 15\n"}
+{"Time":"2026-10-07T19:54:09.502936-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestFrete","Output":"--- FAIL: TestFrete (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.502944-03:00","Action":"fail","Package":"exemplo.local/umfalho","Test":"TestFrete","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.502952-03:00","Action":"run","Package":"exemplo.local/umfalho","Test":"TestSomaZero"}
+{"Time":"2026-10-07T19:54:09.50296-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestSomaZero","Output":"=== RUN   TestSomaZero\n"}
+{"Time":"2026-10-07T19:54:09.50297-03:00","Action":"output","Package":"exemplo.local/umfalho","Test":"TestSomaZero","Output":"--- PASS: TestSomaZero (0.00s)\n"}
+{"Time":"2026-10-07T19:54:09.502987-03:00","Action":"pass","Package":"exemplo.local/umfalho","Test":"TestSomaZero","Elapsed":0}
+{"Time":"2026-10-07T19:54:09.502995-03:00","Action":"output","Package":"exemplo.local/umfalho","Output":"FAIL\n"}
+{"Time":"2026-10-07T19:54:09.503339-03:00","Action":"output","Package":"exemplo.local/umfalho","Output":"FAIL\texemplo.local/umfalho\t0.009s\n"}
+{"Time":"2026-10-07T19:54:09.503382-03:00","Action":"fail","Package":"exemplo.local/umfalho","Elapsed":0.01}

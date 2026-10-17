@@ -1,0 +1,10 @@
+{"Time":"2026-10-07T19:54:10.201282-03:00","Action":"start","Package":"exemplo.local/panictestmain"}
+{"Time":"2026-10-07T19:54:10.210857-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"panic: init quebrado\n"}
+{"Time":"2026-10-07T19:54:10.210938-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"\n"}
+{"Time":"2026-10-07T19:54:10.210949-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"goroutine 1 [running]:\n"}
+{"Time":"2026-10-07T19:54:10.210961-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"exemplo.local/panictestmain.TestMain(...)\n"}
+{"Time":"2026-10-07T19:54:10.210972-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"\t/tmp/aprova-repositorio/panictestmain/soma_test.go:5\n"}
+{"Time":"2026-10-07T19:54:10.210993-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"main.main()\n"}
+{"Time":"2026-10-07T19:54:10.211-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"\t_testmain.go:48 +0x94\n"}
+{"Time":"2026-10-07T19:54:10.211293-03:00","Action":"output","Package":"exemplo.local/panictestmain","Output":"FAIL\texemplo.local/panictestmain\t0.010s\n"}
+{"Time":"2026-10-07T19:54:10.211331-03:00","Action":"fail","Package":"exemplo.local/panictestmain","Elapsed":0.01}

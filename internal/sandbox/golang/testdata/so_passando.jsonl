@@ -1,0 +1,21 @@
+{"Time":"2026-10-07T19:54:07.890913-03:00","Action":"start","Package":"exemplo.local/passando"}
+{"Time":"2026-10-07T19:54:07.906815-03:00","Action":"run","Package":"exemplo.local/passando","Test":"TestSomaPositivos"}
+{"Time":"2026-10-07T19:54:07.906926-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaPositivos","Output":"=== RUN   TestSomaPositivos\n"}
+{"Time":"2026-10-07T19:54:07.906975-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaPositivos","Output":"--- PASS: TestSomaPositivos (0.00s)\n"}
+{"Time":"2026-10-07T19:54:07.906987-03:00","Action":"pass","Package":"exemplo.local/passando","Test":"TestSomaPositivos","Elapsed":0}
+{"Time":"2026-10-07T19:54:07.906997-03:00","Action":"run","Package":"exemplo.local/passando","Test":"TestSomaNegativos"}
+{"Time":"2026-10-07T19:54:07.907007-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaNegativos","Output":"=== RUN   TestSomaNegativos\n"}
+{"Time":"2026-10-07T19:54:07.907018-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaNegativos","Output":"--- PASS: TestSomaNegativos (0.00s)\n"}
+{"Time":"2026-10-07T19:54:07.907032-03:00","Action":"pass","Package":"exemplo.local/passando","Test":"TestSomaNegativos","Elapsed":0}
+{"Time":"2026-10-07T19:54:07.907042-03:00","Action":"run","Package":"exemplo.local/passando","Test":"TestSomaZero"}
+{"Time":"2026-10-07T19:54:07.907052-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaZero","Output":"=== RUN   TestSomaZero\n"}
+{"Time":"2026-10-07T19:54:07.907068-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestSomaZero","Output":"--- PASS: TestSomaZero (0.00s)\n"}
+{"Time":"2026-10-07T19:54:07.907076-03:00","Action":"pass","Package":"exemplo.local/passando","Test":"TestSomaZero","Elapsed":0}
+{"Time":"2026-10-07T19:54:07.907085-03:00","Action":"run","Package":"exemplo.local/passando","Test":"TestPulado"}
+{"Time":"2026-10-07T19:54:07.907093-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestPulado","Output":"=== RUN   TestPulado\n"}
+{"Time":"2026-10-07T19:54:07.907102-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestPulado","Output":"    soma_test.go:8: depende de rede\n"}
+{"Time":"2026-10-07T19:54:07.907113-03:00","Action":"output","Package":"exemplo.local/passando","Test":"TestPulado","Output":"--- SKIP: TestPulado (0.00s)\n"}
+{"Time":"2026-10-07T19:54:07.907159-03:00","Action":"skip","Package":"exemplo.local/passando","Test":"TestPulado","Elapsed":0}
+{"Time":"2026-10-07T19:54:07.907212-03:00","Action":"output","Package":"exemplo.local/passando","Output":"PASS\n"}
+{"Time":"2026-10-07T19:54:07.908071-03:00","Action":"output","Package":"exemplo.local/passando","Output":"ok  \texemplo.local/passando\t0.015s\n"}
+{"Time":"2026-10-07T19:54:07.910346-03:00","Action":"pass","Package":"exemplo.local/passando","Elapsed":0.019}

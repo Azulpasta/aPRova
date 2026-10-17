@@ -1,0 +1,42 @@
+{"Time":"2026-10-07T19:54:10.686315-03:00","Action":"start","Package":"exemplo.local/trava"}
+{"Time":"2026-10-07T19:54:10.693314-03:00","Action":"run","Package":"exemplo.local/trava","Test":"TestRapido"}
+{"Time":"2026-10-07T19:54:10.693376-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestRapido","Output":"=== RUN   TestRapido\n"}
+{"Time":"2026-10-07T19:54:10.693403-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestRapido","Output":"--- PASS: TestRapido (0.00s)\n"}
+{"Time":"2026-10-07T19:54:10.693412-03:00","Action":"pass","Package":"exemplo.local/trava","Test":"TestRapido","Elapsed":0}
+{"Time":"2026-10-07T19:54:10.693421-03:00","Action":"run","Package":"exemplo.local/trava","Test":"TestTrava"}
+{"Time":"2026-10-07T19:54:10.693427-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"=== RUN   TestTrava\n"}
+{"Time":"2026-10-07T19:54:13.697255-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"panic: test timed out after 3s\n"}
+{"Time":"2026-10-07T19:54:13.697364-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\trunning tests:\n"}
+{"Time":"2026-10-07T19:54:13.697373-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t\tTestTrava (3s)\n"}
+{"Time":"2026-10-07T19:54:13.697392-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\n"}
+{"Time":"2026-10-07T19:54:13.697401-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"goroutine 37 [running]:\n"}
+{"Time":"2026-10-07T19:54:13.697406-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.(*M).startAlarm.func1()\n"}
+{"Time":"2026-10-07T19:54:13.697415-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2802 +0x2cc\n"}
+{"Time":"2026-10-07T19:54:13.697431-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"created by time.goFunc\n"}
+{"Time":"2026-10-07T19:54:13.697437-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/time/sleep.go:215 +0x38\n"}
+{"Time":"2026-10-07T19:54:13.697442-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\n"}
+{"Time":"2026-10-07T19:54:13.697447-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"goroutine 1 [chan receive]:\n"}
+{"Time":"2026-10-07T19:54:13.697453-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.(*T).Run(0x31b555768008, {0x102e3f19a?, 0x295106c002dfaa30?}, 0x102f8ff00)\n"}
+{"Time":"2026-10-07T19:54:13.697467-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2109 +0x3bc\n"}
+{"Time":"2026-10-07T19:54:13.697473-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.runTests.func1(0x31b555768008)\n"}
+{"Time":"2026-10-07T19:54:13.697478-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2585 +0x40\n"}
+{"Time":"2026-10-07T19:54:13.697483-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.tRunner(0x31b555768008, 0x31b555718c48)\n"}
+{"Time":"2026-10-07T19:54:13.697489-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2036 +0xc4\n"}
+{"Time":"2026-10-07T19:54:13.697495-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.runTests({0x102e41d9c, 0x13}, {0x102e41d9c, 0x13}, 0x31b55571e060, {0x102fb24c0, 0x2, 0x2}, {0x80200550005a6323?, 0x102e40b60?, ...})\n"}
+{"Time":"2026-10-07T19:54:13.697511-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2583 +0x3f0\n"}
+{"Time":"2026-10-07T19:54:13.697517-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.(*M).Run(0x31b55571c1e0)\n"}
+{"Time":"2026-10-07T19:54:13.697559-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2443 +0x578\n"}
+{"Time":"2026-10-07T19:54:13.697564-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"main.main()\n"}
+{"Time":"2026-10-07T19:54:13.697568-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t_testmain.go:48 +0x80\n"}
+{"Time":"2026-10-07T19:54:13.697572-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\n"}
+{"Time":"2026-10-07T19:54:13.697577-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"goroutine 36 [sleep]:\n"}
+{"Time":"2026-10-07T19:54:13.697581-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"time.Sleep(0x34630b8a000)\n"}
+{"Time":"2026-10-07T19:54:13.697586-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/runtime/time.go:363 +0x150\n"}
+{"Time":"2026-10-07T19:54:13.697607-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"exemplo.local/trava.TestTrava(0x31b555768488?)\n"}
+{"Time":"2026-10-07T19:54:13.697612-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/tmp/aprova-repositorio/trava/soma_test.go:9 +0x28\n"}
+{"Time":"2026-10-07T19:54:13.697617-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"testing.tRunner(0x31b555768488, 0x102f8ff00)\n"}
+{"Time":"2026-10-07T19:54:13.697622-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2036 +0xc4\n"}
+{"Time":"2026-10-07T19:54:13.697626-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"created by testing.(*T).Run in goroutine 1\n"}
+{"Time":"2026-10-07T19:54:13.69763-03:00","Action":"output","Package":"exemplo.local/trava","Test":"TestTrava","Output":"\t/usr/local/go/src/testing/testing.go:2101 +0x3a8\n"}
+{"Time":"2026-10-07T19:54:13.698005-03:00","Action":"output","Package":"exemplo.local/trava","Output":"FAIL\texemplo.local/trava\t3.011s\n"}
+{"Time":"2026-10-07T19:54:13.698028-03:00","Action":"fail","Package":"exemplo.local/trava","Elapsed":3.012}

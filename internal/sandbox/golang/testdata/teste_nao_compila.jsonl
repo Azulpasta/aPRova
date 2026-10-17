@@ -1,0 +1,6 @@
+{"ImportPath":"exemplo.local/testenaocompila [exemplo.local/testenaocompila.test]","Action":"build-output","Output":"# exemplo.local/testenaocompila [exemplo.local/testenaocompila.test]\n"}
+{"ImportPath":"exemplo.local/testenaocompila [exemplo.local/testenaocompila.test]","Action":"build-output","Output":"./soma_test.go:5:43: cannot use \"texto\" (untyped string constant) as int value in variable declaration\n"}
+{"ImportPath":"exemplo.local/testenaocompila [exemplo.local/testenaocompila.test]","Action":"build-fail"}
+{"Time":"2026-10-07T19:54:09.917858-03:00","Action":"start","Package":"exemplo.local/testenaocompila"}
+{"Time":"2026-10-07T19:54:09.917997-03:00","Action":"output","Package":"exemplo.local/testenaocompila","Output":"FAIL\texemplo.local/testenaocompila [build failed]\n"}
+{"Time":"2026-10-07T19:54:09.918021-03:00","Action":"fail","Package":"exemplo.local/testenaocompila","Elapsed":0,"FailedBuild":"exemplo.local/testenaocompila [exemplo.local/testenaocompila.test]"}
