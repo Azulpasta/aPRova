@@ -76,11 +76,14 @@ func novosRepositoriosLocais(t *testing.T) repositoriosLocais {
 	return repositoriosLocais{diretorio: diretorio}
 }
 
-func (r repositoriosLocais) publicar(t *testing.T, caso string) (endereco, sha string) {
+func (r repositoriosLocais) publicar(t *testing.T, caso string, ajustar func(t *testing.T, destino string)) (endereco, sha string) {
 	t.Helper()
 
 	destino := filepath.Join(r.diretorio, caso)
 	copiarDiretorio(t, filepath.Join("testdata", "go", caso), destino)
+	if ajustar != nil {
+		ajustar(t, destino)
+	}
 
 	gitLocal(t, destino, "init", "-q")
 	gitLocal(t, destino, "add", ".")
@@ -130,17 +133,31 @@ func gitLocal(t *testing.T, diretorio string, argumentos ...string) string {
 	return strings.TrimSpace(string(saida))
 }
 
+type cenarioDeIntegracao struct {
+	caso      string
+	prazo     time.Duration
+	opcoes    sandbox.OpcoesExecutorLocal
+	diretorio string
+	ajustar   func(t *testing.T, destino string)
+}
+
 func executarCaso(t *testing.T, caso string, prazo time.Duration) sandbox.ResultadoSandbox {
 	t.Helper()
-	return executarCasoComOpcoes(t, caso, prazo, sandbox.OpcoesExecutorLocal{})
+	return executarCenario(t, cenarioDeIntegracao{caso: caso, prazo: prazo})
 }
 
 func executarCasoComOpcoes(t *testing.T, caso string, prazo time.Duration, opcoes sandbox.OpcoesExecutorLocal) sandbox.ResultadoSandbox {
 	t.Helper()
+	return executarCenario(t, cenarioDeIntegracao{caso: caso, prazo: prazo, opcoes: opcoes})
+}
+
+func executarCenario(t *testing.T, cenario cenarioDeIntegracao) sandbox.ResultadoSandbox {
+	t.Helper()
 	exigirImagemDoSandboxGo(t)
 
+	caso, prazo, opcoes := cenario.caso, cenario.prazo, cenario.opcoes
 	repositorios := novosRepositoriosLocais(t)
-	endereco, sha := repositorios.publicar(t, caso)
+	endereco, sha := repositorios.publicar(t, caso, cenario.ajustar)
 
 	opcoes.ImagemPorLinguagem = map[sandbox.Linguagem]string{sandbox.LinguagemGo: imagemDoSandboxGo}
 	opcoes.Montagens = []string{repositorios.diretorio + ":" + pontoDeMontagem + ":ro"}
@@ -154,6 +171,7 @@ func executarCasoComOpcoes(t *testing.T, caso string, prazo time.Duration, opcoe
 		SHA:            sha,
 		Linguagem:      sandbox.LinguagemGo,
 		TaskRunID:      "integracao-" + caso,
+		Diretorio:      cenario.diretorio,
 	})
 	if err != nil {
 		t.Fatalf("executar caso %s: %v", caso, err)
@@ -239,5 +257,41 @@ func TestSandboxGoSemTrocaDeUsuarioFalhaFechadoEmInfraestrutura(t *testing.T) {
 	}
 	if !strings.Contains(resultado.SaidaBruta, "não foi possível rodar os testes como usuário sem privilégio") {
 		t.Errorf("a mensagem precisa nomear a troca negada: %q", resultado.SaidaBruta)
+	}
+}
+
+func TestSandboxGoComProjetoNumSubdiretorio(t *testing.T) {
+	resultado := executarCenario(t, cenarioDeIntegracao{caso: "subdiretorio", prazo: prazoDeUmCasoComum, diretorio: "go"})
+
+	if resultado.TipoFalha != sandbox.FalhaNenhuma || !resultado.Compilou || resultado.TestesPassaram != 2 {
+		t.Errorf("com o diretório do projeto informado, os testes de go/ rodam: %+v", resultado)
+	}
+}
+
+func TestSandboxGoSemDiretorioNumRepositorioComOProjetoEmSubdiretorio(t *testing.T) {
+	resultado := executarCenario(t, cenarioDeIntegracao{caso: "subdiretorio", prazo: prazoDeUmCasoComum})
+
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "sem go.mod") {
+		t.Errorf("sem o diretório do projeto não há go.mod na raiz: %+v", resultado)
+	}
+}
+
+func TestSandboxGoRecusaDiretorioQueOPRTrocouPorLinkParaForaDoClone(t *testing.T) {
+	trocarPorLink := func(t *testing.T, destino string) {
+		t.Helper()
+		if err := os.RemoveAll(filepath.Join(destino, "go")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("/usr/local/go", filepath.Join(destino, "go")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	resultado := executarCenario(t, cenarioDeIntegracao{
+		caso: "subdiretorio", prazo: prazoDeUmCasoComum, diretorio: "go", ajustar: trocarPorLink,
+	})
+
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "link simbólico") {
+		t.Errorf("o link commitado pelo PR não pode levar os testes para fora do clone: %+v", resultado)
 	}
 }

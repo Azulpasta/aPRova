@@ -37,9 +37,14 @@ presente para compilar e testar o código do PR.
 | `APROVA_TASK_RUN_ID` | identificador da execução |
 | `APROVA_PRAZO_SEGUNDOS` | prazo total do executor de dentro |
 | `APROVA_SAIDA` | `stdout` (padrão) ou `coletor` |
+| `APROVA_DIRETORIO` | opcional: caminho do projeto dentro do repositório; ausente ou vazio é a raiz. Vem da configuração do aPRova, nunca do PR |
 
-Qualquer variável ausente ou inválida vira resultado `infraestrutura` com a
-mensagem que nomeia a variável. O processo termina com código 0 sempre que
+Qualquer variável obrigatória ausente, ou qualquer variável inválida, vira
+resultado `infraestrutura` com a mensagem que nomeia a variável. O diretório do
+projeto é conferido depois do clone: se ele não existe, não é diretório ou passa
+por um link simbólico em qualquer componente do caminho, o resultado também é
+`infraestrutura` e nada é testado. Link é recusado mesmo apontando para dentro do
+clone, porque faria o sandbox testar outro projeto que não o configurado. O processo termina com código 0 sempre que
 entrega um resultado, seja ele qual for, e com 1 apenas quando nem a entrega
 foi possível.
 
@@ -56,10 +61,12 @@ usuário do executor, poderia escrever no stdout do executor por
   `go test`) roda como uid 10001, via `SysProcAttr.Credential`, sem grupos
   suplementares. Um processo do uid 10001 não abre `/proc/1/fd/1`, que
   pertence ao root.
-- O clone pertence ao uid 10001 e o executor não escreve nada nele. A única
-  leitura é conferir se existe `go.mod` na raiz, antes de qualquer código do
-  PR rodar. O resultado é montado só a partir do que chega pelos pipes, nunca
-  de arquivo do diretório de trabalho.
+- O clone pertence ao uid 10001 e o executor não escreve nada nele. As únicas
+  leituras acontecem antes de qualquer código do PR rodar: quando há
+  `APROVA_DIRETORIO`, conferir com `lstat` cada componente desse caminho; e
+  conferir se existe `go.mod` na raiz do projeto, que é o próprio clone quando
+  `APROVA_DIRETORIO` está ausente. O resultado é montado só a partir do que
+  chega pelos pipes, nunca de arquivo do diretório de trabalho.
 - A saída dos comandos é capturada por pipe. O que o PR imprime vira texto
   dentro de `saida_bruta`, nunca uma linha própria no stdout do container.
 - Ao fim de cada comando, todo processo do uid 10001 que ficou para trás é

@@ -19,11 +19,20 @@ func TestLerArgumentosAceitaRepositorioESHA(t *testing.T) {
 	}
 }
 
+func TestLerArgumentosAceitaDiretorioDoProjetoOpcional(t *testing.T) {
+	obtido, err := lerArgumentos([]string{"disparar", "https://github.com/Azulpasta/aPRova-TESTES.git", shaDoFrete, "go"})
+
+	if err != nil || obtido.diretorio != "go" {
+		t.Errorf("esperava o diretório go, obtive %+v e %v", obtido, err)
+	}
+}
+
 func TestLerArgumentosRejeitaEntradaIncompleta(t *testing.T) {
 	casos := map[string][]string{
 		"sem argumentos":      {"disparar"},
 		"sem SHA":             {"disparar", "https://github.com/Azulpasta/loja.git"},
-		"argumento a mais":    {"disparar", "https://github.com/Azulpasta/loja.git", shaDoFrete, "extra"},
+		"argumento a mais":    {"disparar", "https://github.com/Azulpasta/loja.git", shaDoFrete, "go", "extra"},
+		"diretório que sai":   {"disparar", "https://github.com/Azulpasta/loja.git", shaDoFrete, "../fora"},
 		"SHA abreviado":       {"disparar", "https://github.com/Azulpasta/loja.git", "9b1f4e2"},
 		"repositório sem URL": {"disparar", "Azulpasta/loja", shaDoFrete},
 	}
@@ -40,7 +49,7 @@ func TestLerArgumentosRejeitaEntradaIncompleta(t *testing.T) {
 func TestVariaveisDoDisparoPedemOResultadoNoStdout(t *testing.T) {
 	momento := time.Date(2026, 10, 7, 15, 4, 5, 0, time.UTC)
 
-	variaveis := variaveisDoDisparo(disparo{repositorio: "https://github.com/Azulpasta/loja.git", sha: shaDoFrete}, momento)
+	variaveis := variaveisDoDisparo(disparo{repositorio: "https://github.com/Azulpasta/loja.git", sha: shaDoFrete, diretorio: "go"}, momento)
 
 	esperadas := map[string]string{
 		"APROVA_REPOSITORIO":    "https://github.com/Azulpasta/loja.git",
@@ -49,6 +58,7 @@ func TestVariaveisDoDisparoPedemOResultadoNoStdout(t *testing.T) {
 		"APROVA_TASK_RUN_ID":    "verificacao-manual-20261007T150405Z",
 		"APROVA_PRAZO_SEGUNDOS": "600",
 		"APROVA_SAIDA":          "stdout",
+		"APROVA_DIRETORIO":      "go",
 	}
 	for nome, valor := range esperadas {
 		if variaveis[nome] != valor {
@@ -57,6 +67,19 @@ func TestVariaveisDoDisparoPedemOResultadoNoStdout(t *testing.T) {
 	}
 	if len(variaveis) != len(esperadas) {
 		t.Errorf("variáveis a mais: %v", variaveis)
+	}
+}
+
+func TestDisparoSemDiretorioUsaARaiz(t *testing.T) {
+	pedido, err := lerArgumentos([]string{"disparar", "https://github.com/Azulpasta/loja.git", shaDoFrete})
+	if err != nil {
+		t.Fatalf("argumentos válidos não deveriam falhar: %v", err)
+	}
+
+	variaveis := variaveisDoDisparo(pedido, time.Now())
+
+	if diretorio, presente := variaveis["APROVA_DIRETORIO"]; !presente || diretorio != "" {
+		t.Errorf("sem o quarto argumento, APROVA_DIRETORIO vai vazio, a raiz; obtive %q (presente=%v)", diretorio, presente)
 	}
 }
 

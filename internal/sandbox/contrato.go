@@ -23,12 +23,15 @@ const (
 	FalhaInfraestrutura TipoFalha = "infraestrutura"
 )
 
-// PedidoExecucao descreve o que deve ser testado no sandbox.
+// PedidoExecucao descreve o que deve ser testado no sandbox. Diretorio é o
+// caminho do projeto dentro do repositório, vazio para a raiz; vem sempre da
+// configuração do aPRova, nunca do conteúdo do PR.
 type PedidoExecucao struct {
 	URLRepositorio string    `validate:"required,url"`
 	SHA            string    `validate:"required,hexadecimal,min=40,max=64"`
 	Linguagem      Linguagem `validate:"required,oneof=go python java"`
 	TaskRunID      string    `validate:"required"`
+	Diretorio      string    `validate:"diretorio_do_projeto"`
 }
 
 // ResultadoSandbox é o resultado normalizado de uma execução, igual para

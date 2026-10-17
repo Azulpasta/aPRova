@@ -22,6 +22,7 @@ func variaveisDoPedido(pedido PedidoExecucao) []variavelDeAmbiente {
 		{nome: "APROVA_SHA", valor: pedido.SHA},
 		{nome: "APROVA_LINGUAGEM", valor: string(pedido.Linguagem)},
 		{nome: "APROVA_TASK_RUN_ID", valor: pedido.TaskRunID},
+		{nome: "APROVA_DIRETORIO", valor: pedido.Diretorio},
 	}
 }
 

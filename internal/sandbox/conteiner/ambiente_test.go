@@ -113,3 +113,29 @@ func TestLerAmbienteNomeiaTodasAsVariaveisComProblema(t *testing.T) {
 		}
 	}
 }
+
+func TestLerAmbienteAceitaDiretorioDoProjetoOpcional(t *testing.T) {
+	for _, diretorio := range []string{"", "go", "servicos/frete"} {
+		variaveis := variaveisValidas()
+		variaveis["APROVA_DIRETORIO"] = diretorio
+
+		ambiente, err := LerAmbiente(leitorDe(variaveis))
+
+		if err != nil || ambiente.Diretorio != diretorio {
+			t.Errorf("APROVA_DIRETORIO=%q: obtive %q e %v", diretorio, ambiente.Diretorio, err)
+		}
+	}
+}
+
+func TestLerAmbienteRecusaDiretorioQueSaiDoRepositorio(t *testing.T) {
+	for _, diretorio := range []string{"../fora", "/go", "go/../.."} {
+		variaveis := variaveisValidas()
+		variaveis["APROVA_DIRETORIO"] = diretorio
+
+		_, err := LerAmbiente(leitorDe(variaveis))
+
+		if err == nil || !strings.Contains(err.Error(), "APROVA_DIRETORIO") {
+			t.Errorf("APROVA_DIRETORIO=%q precisa ser recusado nomeando a variável, obtive %v", diretorio, err)
+		}
+	}
+}
