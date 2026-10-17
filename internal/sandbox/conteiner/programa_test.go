@@ -266,6 +266,9 @@ func TestProgramaComTrocaDeUsuarioNegadaPublicaInfraestruturaSemRodarNada(t *tes
 	if !strings.HasPrefix(resultado.SaidaBruta, "aprova: não foi possível rodar os testes como usuário sem privilégio") {
 		t.Errorf("a mensagem precisa nomear a causa, não o passo em que ela apareceu: %q", resultado.SaidaBruta)
 	}
+	if !strings.Contains(resultado.SaidaBruta, "uid 10001): fork/exec /usr/bin/git: operation not permitted") {
+		t.Errorf("o detalhe técnico precisa acompanhar a mensagem: %q", resultado.SaidaBruta)
+	}
 	if negador.tentativas != 1 || c.linguagem.chamadas != 0 {
 		t.Errorf("nada roda depois da troca negada: %d tentativas, %d execuções da linguagem", negador.tentativas, c.linguagem.chamadas)
 	}
