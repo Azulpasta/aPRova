@@ -67,14 +67,21 @@ func (r *RodadorDoSistema) Rodar(ctx context.Context, comando Comando) Execucao 
 	processo.WaitDelay = r.esperaAposEncerrar
 	processo.Cancel = func() error { return r.encerrarDescendentes(processo) }
 
-	if err := r.iniciar(processo); err != nil {
-		return Execucao{Erro: r.explicarFalhaAoIniciar(err)}
+	if err := r.iniciador()(processo); err != nil {
+		return interpretar(ctx, nil, r.explicarFalhaAoIniciar(err))
 	}
 
 	err := processo.Wait()
 	r.limparRestantes(processo)
 
 	return interpretar(ctx, saida.Bytes(), err)
+}
+
+func (r *RodadorDoSistema) iniciador() func(*exec.Cmd) error {
+	if r.iniciar == nil {
+		return (*exec.Cmd).Start
+	}
+	return r.iniciar
 }
 
 func (r *RodadorDoSistema) explicarFalhaAoIniciar(err error) error {
