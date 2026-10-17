@@ -89,7 +89,51 @@ exatamente esses ataques e confere que o resultado entregue é a falha real.
   fluxo e o pacote continua reprovado.
 - Um PR pode encerrar o próprio `go test`, que roda com o mesmo uid 10001.
   Sem evento de falha, o resultado vira `infraestrutura`, nunca "passou".
-- O executor local derruba as capacidades; no Azure Container Apps a
-  separação depende do uid 10001, que é o que impede a forja. Confirmar quais
-  capacidades o Container Apps concede ao container é pendência do card de
-  infraestrutura.
+- O executor local derruba as capacidades; no Azure Container Apps isso não é
+  possível, e a separação depende só do uid 10001. Ver a seção abaixo.
+
+## O que foi observado no Azure Container Apps
+
+Medido em 2026-10-17, no job `aprova-sandbox-teste` (0,25 vCPU, 0,5 GiB), com a
+imagem `aprova-sandbox-go:cf7ae14e5fd302449b405cd04e31b67b50c0bc40`.
+
+**Capacidades.** O template do job não tem campo para capacidades nem para o
+usuário de execução, e o `az containerapp job create` não oferece opção para
+isso. Uma execução de diagnóstico com a mesma imagem leu `/proc/self/status` do
+processo inicial:
+
+| Campo | Valor |
+| --- | --- |
+| `Uid` | `0` |
+| `CapEff` | `00000000a80425fb`: CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP, NET_BIND_SERVICE, NET_RAW, SYS_CHROOT, MKNOD, AUDIT_WRITE, SETFCAP |
+| `CapAmb` | `0000000000000000` |
+| `NoNewPrivs` | `1` |
+
+Ou seja, na Azure o executor de dentro roda como root com o conjunto padrão de
+capacidades de container, sem poder derrubá-las, e o próprio ambiente liga o
+`no_new_privs`. A troca para o uid 10001 funcionou nos dois disparos reais. Ao
+trocar de root para um uid comum, o processo perde as capacidades, o conjunto
+ambiente está vazio e o `no_new_privs` impede recuperá-las por binário com
+setuid. O código do PR, portanto, roda sem capacidade nenhuma, e não consegue
+abrir `/proc/1/fd/1` do root. Se a troca algum dia for negada, o resultado é
+`infraestrutura` com a mensagem "não foi possível rodar os testes como usuário
+sem privilégio", e nada do PR roda.
+
+O que se perde em relação ao executor local é a defesa em profundidade do lado
+do root: com `DAC_OVERRIDE` e `KILL`, um defeito no executor de dentro teria
+mais alcance na Azure do que no Docker local.
+
+**Tempo por execução**, contra o repositório-alvo `aPRova-TESTES` com
+`APROVA_DIRETORIO=go`:
+
+| SHA | Resultado | `duracao_ms` do executor de dentro | Do disparo ao `Succeeded` visto pelo script |
+| --- | --- | --- | --- |
+| `2ce4ba4` (main) | nenhuma, 10 passaram, 0 falharam | 37668 (37,7 s) | 75 s |
+| `d7ee920` (teste-peso-zero) | teste, 10 passaram, 1 falhou | 38724 (38,7 s) | 78 s |
+
+A última coluna é uma medida inclusiva: contém o `duracao_ms`, a Azure criando
+a execução, baixando a imagem e subindo o container, e a granularidade de 5 s
+com que `scripts/disparar-sandbox-azure` consulta o status. Os 0,5 GiB bastaram para compilar a stdlib e os
+testes. A linha JSON do resultado chega ao Log Analytics (tabela
+`ContainerAppConsoleLogs_CL`, `Stream_s == "stdout"`) em menos de um minuto
+depois do fim.
