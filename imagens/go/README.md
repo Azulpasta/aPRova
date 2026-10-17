@@ -126,13 +126,14 @@ mais alcance na Azure do que no Docker local.
 **Tempo por execução**, contra o repositório-alvo `aPRova-TESTES` com
 `APROVA_DIRETORIO=go`:
 
-| SHA | Resultado | Executor de dentro (`duracao_ms`) | Do disparo ao `Succeeded` |
+| SHA | Resultado | `duracao_ms` do executor de dentro | Do disparo ao `Succeeded` visto pelo script |
 | --- | --- | --- | --- |
-| `2ce4ba4` (main) | nenhuma, 10 passaram, 0 falharam | 37,7 s | 75 s |
-| `d7ee920` (teste-peso-zero) | teste, 10 passaram, 1 falhou | 38,7 s | 78 s |
+| `2ce4ba4` (main) | nenhuma, 10 passaram, 0 falharam | 37668 (37,7 s) | 75 s |
+| `d7ee920` (teste-peso-zero) | teste, 10 passaram, 1 falhou | 38724 (38,7 s) | 78 s |
 
-A diferença entre as duas colunas é a Azure criando a execução, baixando a
-imagem e subindo o container. Os 0,5 GiB bastaram para compilar a stdlib e os
+A última coluna é uma medida inclusiva: contém o `duracao_ms`, a Azure criando
+a execução, baixando a imagem e subindo o container, e a granularidade de 5 s
+com que `scripts/disparar-sandbox-azure` consulta o status. Os 0,5 GiB bastaram para compilar a stdlib e os
 testes. A linha JSON do resultado chega ao Log Analytics (tabela
 `ContainerAppConsoleLogs_CL`, `Stream_s == "stdout"`) em menos de um minuto
 depois do fim.
