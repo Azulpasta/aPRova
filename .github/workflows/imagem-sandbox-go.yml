@@ -25,6 +25,7 @@ concurrency:
 jobs:
   publicar:
     name: publicar
+    if: vars.ACR_NOME != ''
     runs-on: ubuntu-latest
 
     env:
