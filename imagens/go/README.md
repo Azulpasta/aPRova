@@ -37,13 +37,14 @@ presente para compilar e testar o código do PR.
 | `APROVA_TASK_RUN_ID` | identificador da execução |
 | `APROVA_PRAZO_SEGUNDOS` | prazo total do executor de dentro |
 | `APROVA_SAIDA` | `stdout` (padrão) ou `coletor` |
-| `APROVA_DIRETORIO` | caminho do projeto dentro do repositório, vazio para a raiz; vem da configuração do aPRova, nunca do PR |
+| `APROVA_DIRETORIO` | opcional: caminho do projeto dentro do repositório; ausente ou vazio é a raiz. Vem da configuração do aPRova, nunca do PR |
 
-Qualquer variável ausente ou inválida vira resultado `infraestrutura` com a
-mensagem que nomeia a variável. O diretório do projeto é conferido depois do
-clone: se o PR o trocou por um link simbólico que aponta para fora do
-repositório, ou se ele não existe, o resultado também é `infraestrutura`, e nada
-é testado. O processo termina com código 0 sempre que
+Qualquer variável obrigatória ausente, ou qualquer variável inválida, vira
+resultado `infraestrutura` com a mensagem que nomeia a variável. O diretório do
+projeto é conferido depois do clone: se ele não existe, não é diretório ou passa
+por um link simbólico em qualquer componente do caminho, o resultado também é
+`infraestrutura` e nada é testado. Link é recusado mesmo apontando para dentro do
+clone, porque faria o sandbox testar outro projeto que não o configurado. O processo termina com código 0 sempre que
 entrega um resultado, seja ele qual for, e com 1 apenas quando nem a entrega
 foi possível.
 
