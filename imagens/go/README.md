@@ -17,7 +17,7 @@ O contexto é a raiz do repositório, porque o primeiro estágio compila
 make imagem-sandbox-go
 ```
 
-A base é `golang:1.27.1-alpine`, fixada por digest. Para atualizar, troque a
+A base é `golang:1.27.2-alpine`, fixada por digest. Para atualizar, troque a
 tag e o digest juntos nos dois `FROM` e rode os testes de integração.
 
 Na Azure, a imagem é publicada pelo workflow `imagem-sandbox-go` com a tag do
