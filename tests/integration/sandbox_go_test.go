@@ -1,0 +1,224 @@
+package integracao
+
+import (
+	"context"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/Azulpasta/aPRova/internal/sandbox"
+)
+
+const (
+	imagemDoSandboxGo     = "aprova-sandbox-go:teste-de-integracao"
+	tempoLimiteDoBuild    = 10 * time.Minute
+	pontoDeMontagem       = "/repositorios"
+	prazoDeUmCasoComum    = 3 * time.Minute
+	prazoDoCasoQueTrava   = 2 * time.Minute
+	prefixoDosRepositorio = ".repositorios-"
+)
+
+var (
+	construcaoDaImagem sync.Once
+	erroDaConstrucao   error
+	saidaDaConstrucao  []byte
+)
+
+func exigirImagemDoSandboxGo(t *testing.T) {
+	t.Helper()
+	exigirDocker(t)
+
+	construcaoDaImagem.Do(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), tempoLimiteDoBuild)
+		defer cancelar()
+
+		raiz, err := filepath.Abs(filepath.Join("..", ".."))
+		if err != nil {
+			erroDaConstrucao = err
+			return
+		}
+		construcao := exec.CommandContext(ctx, "docker", "build", "-q",
+			"-f", filepath.Join(raiz, "imagens", "go", "Dockerfile"), "-t", imagemDoSandboxGo, raiz)
+		saidaDaConstrucao, erroDaConstrucao = construcao.CombinedOutput()
+	})
+
+	if erroDaConstrucao != nil {
+		t.Fatalf("construir a imagem do sandbox Go: %v\n%s", erroDaConstrucao, saidaDaConstrucao)
+	}
+}
+
+type repositoriosLocais struct {
+	diretorio string
+}
+
+func novosRepositoriosLocais(t *testing.T) repositoriosLocais {
+	t.Helper()
+
+	relativo, err := os.MkdirTemp(".", prefixoDosRepositorio)
+	if err != nil {
+		t.Fatalf("criar diretório dos repositórios: %v", err)
+	}
+	diretorio, err := filepath.Abs(relativo)
+	if err != nil {
+		t.Fatalf("caminho absoluto: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(diretorio) })
+
+	return repositoriosLocais{diretorio: diretorio}
+}
+
+func (r repositoriosLocais) publicar(t *testing.T, caso string) (endereco, sha string) {
+	t.Helper()
+
+	destino := filepath.Join(r.diretorio, caso)
+	copiarDiretorio(t, filepath.Join("testdata", "go", caso), destino)
+
+	gitLocal(t, destino, "init", "-q")
+	gitLocal(t, destino, "add", ".")
+	gitLocal(t, destino, "commit", "-q", "-m", "caso "+caso)
+	sha = gitLocal(t, destino, "rev-parse", "HEAD")
+
+	return "file://" + pontoDeMontagem + "/" + caso, sha
+}
+
+func copiarDiretorio(t *testing.T, origem, destino string) {
+	t.Helper()
+
+	err := filepath.WalkDir(origem, func(caminho string, entrada fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relativo, err := filepath.Rel(origem, caminho)
+		if err != nil {
+			return err
+		}
+		alvo := filepath.Join(destino, relativo)
+		if entrada.IsDir() {
+			return os.MkdirAll(alvo, 0o755)
+		}
+		conteudo, err := os.ReadFile(caminho)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(alvo, conteudo, 0o644)
+	})
+	if err != nil {
+		t.Fatalf("copiar %s: %v", origem, err)
+	}
+}
+
+func gitLocal(t *testing.T, diretorio string, argumentos ...string) string {
+	t.Helper()
+
+	comando := exec.CommandContext(t.Context(), "git", append([]string{"-C", diretorio}, argumentos...)...)
+	comando.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=aprova", "GIT_AUTHOR_EMAIL=aprova@exemplo.local",
+		"GIT_COMMITTER_NAME=aprova", "GIT_COMMITTER_EMAIL=aprova@exemplo.local")
+	saida, err := comando.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", argumentos, err, saida)
+	}
+	return strings.TrimSpace(string(saida))
+}
+
+func executarCaso(t *testing.T, caso string, prazo time.Duration) sandbox.ResultadoSandbox {
+	t.Helper()
+	exigirImagemDoSandboxGo(t)
+
+	repositorios := novosRepositoriosLocais(t)
+	endereco, sha := repositorios.publicar(t, caso)
+
+	executor := sandbox.NovoExecutorLocal(sandbox.OpcoesExecutorLocal{
+		ImagemPorLinguagem: map[sandbox.Linguagem]string{sandbox.LinguagemGo: imagemDoSandboxGo},
+		Montagens:          []string{repositorios.diretorio + ":" + pontoDeMontagem + ":ro"},
+	})
+
+	ctx, cancelar := context.WithTimeout(t.Context(), prazo)
+	defer cancelar()
+
+	resultado, err := executor.Executar(ctx, sandbox.PedidoExecucao{
+		URLRepositorio: endereco,
+		SHA:            sha,
+		Linguagem:      sandbox.LinguagemGo,
+		TaskRunID:      "integracao-" + caso,
+	})
+	if err != nil {
+		t.Fatalf("executar caso %s: %v", caso, err)
+	}
+
+	t.Logf("caso %s: tipo=%s compilou=%v passaram=%d falharam=%d duracao=%dms\n%s",
+		caso, resultado.TipoFalha, resultado.Compilou, resultado.TestesPassaram, resultado.TestesFalharam,
+		resultado.DuracaoMS, resultado.SaidaBruta)
+
+	return resultado
+}
+
+func TestSandboxGoProjetoOk(t *testing.T) {
+	resultado := executarCaso(t, "ok", prazoDeUmCasoComum)
+
+	if resultado.TipoFalha != sandbox.FalhaNenhuma || !resultado.Compilou ||
+		resultado.TestesPassaram != 2 || resultado.TestesFalharam != 0 {
+		t.Errorf("projeto ok: esperava 2 testes passando sem falha, obtive %+v", resultado)
+	}
+}
+
+func TestSandboxGoTesteFalho(t *testing.T) {
+	resultado := executarCaso(t, "teste_falho", prazoDeUmCasoComum)
+
+	if resultado.TipoFalha != sandbox.FalhaTeste || !resultado.Compilou ||
+		resultado.TestesPassaram != 2 || resultado.TestesFalharam != 1 {
+		t.Errorf("esperava falha de teste com 2 passando e 1 falhando, obtive %+v", resultado)
+	}
+	if !strings.Contains(resultado.SaidaBruta, "frete com taxa: esperava 16, obtive 15") {
+		t.Error("a mensagem do teste falho precisa estar na saída")
+	}
+}
+
+func TestSandboxGoErroDeCompilacao(t *testing.T) {
+	resultado := executarCaso(t, "nao_compila", prazoDeUmCasoComum)
+
+	if resultado.TipoFalha != sandbox.FalhaCompilacao || resultado.Compilou ||
+		resultado.TestesPassaram != 0 || resultado.TestesFalharam != 0 {
+		t.Errorf("esperava compilação sem nenhum teste rodado, obtive %+v", resultado)
+	}
+}
+
+func TestSandboxGoTesteQueTravaEhFalhaDeTesteDentroDoPrazo(t *testing.T) {
+	inicio := time.Now()
+
+	resultado := executarCaso(t, "trava", prazoDoCasoQueTrava)
+
+	if resultado.TipoFalha != sandbox.FalhaTeste || resultado.TestesFalharam < 1 {
+		t.Errorf("teste que trava é culpa do PR, obtive %+v", resultado)
+	}
+	if decorrido := time.Since(inicio); decorrido >= prazoDoCasoQueTrava {
+		t.Errorf("o resultado precisa chegar dentro do prazo, levou %v", decorrido)
+	}
+}
+
+func TestSandboxGoTesteMaliciosoNaoForjaOResultado(t *testing.T) {
+	resultado := executarCaso(t, "malicioso", prazoDeUmCasoComum)
+
+	if resultado.TestesPassaram == 99 || resultado.SaidaBruta == "forjado" {
+		t.Fatalf("o resultado forjado venceu: %+v", resultado)
+	}
+	if resultado.TipoFalha != sandbox.FalhaTeste || resultado.TestesFalharam != 1 || resultado.TestesPassaram != 0 {
+		t.Errorf("o resultado entregue precisa ser o verdadeiro, a falha; obtive %+v", resultado)
+	}
+}
+
+func TestSandboxGoModExigindoGoMaisNovoEhInfraestrutura(t *testing.T) {
+	resultado := executarCaso(t, "go_mais_novo", prazoDeUmCasoComum)
+
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura {
+		t.Errorf("esperava infraestrutura, obtive %+v", resultado)
+	}
+	if !strings.Contains(resultado.SaidaBruta, "go.mod exige uma versão do Go mais nova") {
+		t.Errorf("a mensagem precisa explicar a versão: %q", resultado.SaidaBruta)
+	}
+}

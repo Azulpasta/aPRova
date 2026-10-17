@@ -77,40 +77,59 @@ func pedidoDeTeste() sandbox.PedidoExecucao {
 	}
 }
 
-func TestContainerSimplesImprimeETerminaSemFalha(t *testing.T) {
-	exigirDocker(t)
-
-	ctx, cancelar := context.WithTimeout(t.Context(), time.Minute)
-	defer cancelar()
-
-	resultado, err := executorComComando("sh", "-c", `echo "sha recebido: $APROVA_SHA"`).Executar(ctx, pedidoDeTeste())
-	if err != nil {
-		t.Fatalf("executar: %v", err)
-	}
-
-	if resultado.TipoFalha != sandbox.FalhaNenhuma {
-		t.Errorf("esperava %q, obtive %q; saída: %s", sandbox.FalhaNenhuma, resultado.TipoFalha, resultado.SaidaBruta)
-	}
-	if !strings.Contains(resultado.SaidaBruta, "sha recebido: "+pedidoDeTeste().SHA) {
-		t.Errorf("a saída deveria trazer o que o container imprimiu, com a variável do pedido; obtive %q", resultado.SaidaBruta)
-	}
-}
-
-func TestContainerRodaSemPrivilegioESemRede(t *testing.T) {
+func TestContainerQuePublicaALinhaDeResultadoEntregaEsseResultado(t *testing.T) {
 	exigirDocker(t)
 
 	ctx, cancelar := context.WithTimeout(t.Context(), time.Minute)
 	defer cancelar()
 
 	resultado, err := executorComComando("sh", "-c",
-		`echo "uid=$(id -u)"; wget -q -T 2 -O /dev/null http://example.com && echo "rede=aberta" || echo "rede=fechada"`,
+		`echo "log qualquer no stderr" >&2; printf '{"compilou":true,"testes_passaram":4,"saida_bruta":"sha %s","tipo_falha":"nenhuma"}\n' "$APROVA_SHA"`,
 	).Executar(ctx, pedidoDeTeste())
 	if err != nil {
 		t.Fatalf("executar: %v", err)
 	}
 
-	if strings.Contains(resultado.SaidaBruta, "uid=0") {
-		t.Errorf("o código do PR rodou como root: %s", resultado.SaidaBruta)
+	if resultado.TipoFalha != sandbox.FalhaNenhuma || resultado.TestesPassaram != 4 {
+		t.Errorf("o resultado vem da linha JSON do stdout, obtive %+v", resultado)
+	}
+	if resultado.SaidaBruta != "sha "+pedidoDeTeste().SHA {
+		t.Errorf("o container recebeu o pedido por variável de ambiente? saída %q", resultado.SaidaBruta)
+	}
+}
+
+func TestContainerSemResultadoPublicadoEhInfraestruturaEPreservaASaida(t *testing.T) {
+	exigirDocker(t)
+
+	ctx, cancelar := context.WithTimeout(t.Context(), time.Minute)
+	defer cancelar()
+
+	resultado, err := executorComComando("sh", "-c", `echo "morri antes de publicar"; exit 0`).Executar(ctx, pedidoDeTeste())
+	if err != nil {
+		t.Fatalf("executar: %v", err)
+	}
+
+	if resultado.TipoFalha != sandbox.FalhaInfraestrutura || !strings.Contains(resultado.SaidaBruta, "morri antes de publicar") {
+		t.Errorf("sem linha de resultado é infraestrutura com a saída preservada, obtive %+v", resultado)
+	}
+}
+
+func TestContainerSoTemCapacidadeDeTrocarDeUsuarioENaoTemRede(t *testing.T) {
+	exigirDocker(t)
+
+	ctx, cancelar := context.WithTimeout(t.Context(), time.Minute)
+	defer cancelar()
+
+	resultado, err := executorComComando("sh", "-c",
+		`grep CapEff /proc/self/status; wget -q -T 2 -O /dev/null http://example.com && echo "rede=aberta" || echo "rede=fechada"`,
+	).Executar(ctx, pedidoDeTeste())
+	if err != nil {
+		t.Fatalf("executar: %v", err)
+	}
+
+	const apenasSetgidESetuid = "CapEff:\t00000000000000c0"
+	if !strings.Contains(resultado.SaidaBruta, apenasSetgidESetuid) {
+		t.Errorf("o executor de dentro só pode ter SETUID e SETGID: %s", resultado.SaidaBruta)
 	}
 	if !strings.Contains(resultado.SaidaBruta, "rede=fechada") {
 		t.Errorf("o container alcançou a rede: %s", resultado.SaidaBruta)
