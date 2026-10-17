@@ -69,6 +69,10 @@ func novosRepositoriosLocais(t *testing.T) repositoriosLocais {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(diretorio) })
 
+	if err := os.Chmod(diretorio, 0o755); err != nil {
+		t.Fatalf("o uid 10001 do container precisa atravessar o diretório montado: %v", err)
+	}
+
 	return repositoriosLocais{diretorio: diretorio}
 }
 
