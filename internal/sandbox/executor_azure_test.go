@@ -15,16 +15,20 @@ type clienteDeJobsFalso struct {
 	consultas          int
 	erroAoIniciar      error
 	variaveisRecebidas map[string]string
+	imagemRecebida     string
+	disparos           int
 	execucoesParadas   []string
 }
 
-func (c *clienteDeJobsFalso) Iniciar(_ context.Context, variaveis map[string]string) (string, error) {
+func (c *clienteDeJobsFalso) Iniciar(_ context.Context, imagem string, variaveis map[string]string) (string, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	c.disparos++
 	if c.erroAoIniciar != nil {
 		return "", c.erroAoIniciar
 	}
+	c.imagemRecebida = imagem
 	c.variaveisRecebidas = variaveis
 	return "execucao-1", nil
 }
@@ -53,7 +57,44 @@ func (c *clienteDeJobsFalso) foiParada(idExecucao string) bool {
 }
 
 func opcoesAzureDeTeste() OpcoesExecutorAzure {
-	return OpcoesExecutorAzure{IntervaloConsulta: time.Millisecond, PrazoInicio: time.Second}
+	return OpcoesExecutorAzure{
+		IntervaloConsulta:  time.Millisecond,
+		PrazoInicio:        time.Second,
+		ImagemPorLinguagem: map[Linguagem]string{LinguagemGo: "aprova.azurecr.io/sandbox-go:abc123"},
+	}
+}
+
+func TestDisparoDoJobUsaAImagemDaLinguagemEOPrazo(t *testing.T) {
+	cliente := &clienteDeJobsFalso{statusEmSequencia: []string{"Succeeded"}}
+	coletor := NovoColetorEmMemoria()
+	_ = coletor.Gravar(t.Context(), pedidoValido().TaskRunID, resultadoDeExemplo())
+
+	executarNaAzure(t, cliente, coletor, opcoesAzureDeTeste(), 90*time.Second)
+
+	if cliente.imagemRecebida != "aprova.azurecr.io/sandbox-go:abc123" {
+		t.Errorf("a imagem da linguagem sobrescreve a do template, recebida %q", cliente.imagemRecebida)
+	}
+	if prazo := cliente.variaveisRecebidas["APROVA_PRAZO_SEGUNDOS"]; prazo != "75" && prazo != "74" {
+		t.Errorf("APROVA_PRAZO_SEGUNDOS = %q, esperava o prazo menos a margem", prazo)
+	}
+	if saida := cliente.variaveisRecebidas["APROVA_SAIDA"]; saida != "coletor" {
+		t.Errorf("na Azure o resultado volta pelo coletor, APROVA_SAIDA = %q", saida)
+	}
+}
+
+func TestLinguagemSemImagemNaAzureEhInfraestruturaSemDisparar(t *testing.T) {
+	cliente := &clienteDeJobsFalso{statusEmSequencia: []string{"Succeeded"}}
+	opcoes := opcoesAzureDeTeste()
+	opcoes.ImagemPorLinguagem = nil
+
+	resultado := executarNaAzure(t, cliente, NovoColetorEmMemoria(), opcoes, time.Second)
+
+	if resultado.TipoFalha != FalhaInfraestrutura {
+		t.Errorf("esperava infraestrutura, obtive %q", resultado.TipoFalha)
+	}
+	if cliente.disparos != 0 {
+		t.Error("sem imagem da linguagem o job não pode ser disparado com a imagem errada")
+	}
 }
 
 func executarNaAzure(t *testing.T, cliente *clienteDeJobsFalso, coletor ColetorResultado, opcoes OpcoesExecutorAzure, prazo time.Duration) ResultadoSandbox {

@@ -11,7 +11,7 @@ func executarComSaida(t *testing.T, saida string, limite int) ResultadoSandbox {
 	t.Helper()
 
 	comando := &comandoFalso{responder: func(_ context.Context, _ []string) (resultadoComando, error) {
-		return resultadoComando{saida: saida}, nil
+		return resultadoComando{saida: linhaDeResultado(t, ResultadoSandbox{SaidaBruta: saida, TipoFalha: FalhaNenhuma})}, nil
 	}}
 	opcoes := opcoesLocaisDeTeste()
 	opcoes.LimiteSaidaBytes = limite
@@ -57,5 +57,15 @@ func TestTruncamentoNaoPartilhaCaractereMultibyte(t *testing.T) {
 		if len(resultado.SaidaBruta) > limite {
 			t.Errorf("com limite %d a saída tem %d bytes", limite, len(resultado.SaidaBruta))
 		}
+	}
+}
+
+func TestLimitarSaidaMantemOFinalNoLimitePadrao(t *testing.T) {
+	saida := strings.Repeat("a", limiteSaidaPadrao) + "fim"
+
+	limitada := LimitarSaida(saida)
+
+	if len(limitada) != limiteSaidaPadrao || !strings.HasSuffix(limitada, "fim") {
+		t.Errorf("esperava os últimos %d bytes, obtive %d terminando em %q", limiteSaidaPadrao, len(limitada), limitada[len(limitada)-3:])
 	}
 }

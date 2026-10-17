@@ -67,3 +67,14 @@ func TestStatusTerminalReconheceQuandoAExecucaoAcabou(t *testing.T) {
 		}
 	}
 }
+
+func TestContainersDaExecucaoSobrescrevemAImagemDoTemplate(t *testing.T) {
+	nome, imagemDoTemplate := "sandbox", "aprova.azurecr.io/sandbox:template"
+	modelo := []*armappcontainers.Container{{Name: &nome, Image: &imagemDoTemplate}}
+
+	execucao := containersDaExecucao(modelo, "aprova.azurecr.io/sandbox-go:abc123", nil)
+
+	if len(execucao) != 1 || *execucao[0].Image != "aprova.azurecr.io/sandbox-go:abc123" || *execucao[0].Name != "sandbox" {
+		t.Errorf("a imagem da linguagem precisa substituir a do template: %+v", execucao)
+	}
+}
