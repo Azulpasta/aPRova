@@ -273,5 +273,5 @@ PASSO="concluído"
 if [ "$PLANO" = true ]; then
 	echo "plano concluído, nada foi alterado"
 else
-	echo "concluído: ${CRIADOS} recurso(s) criado(s) ou alterado(s); segredos que já existiam foram regravados com o mesmo valor e não entram na conta"
+	echo "concluído: ${CRIADOS} recurso(s) criado(s) ou alterado(s); segredos que já existiam foram regravados com o valor atual e não entram na conta"
 fi

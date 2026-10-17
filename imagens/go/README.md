@@ -62,11 +62,11 @@ usuário do executor, poderia escrever no stdout do executor por
   suplementares. Um processo do uid 10001 não abre `/proc/1/fd/1`, que
   pertence ao root.
 - O clone pertence ao uid 10001 e o executor não escreve nada nele. As únicas
-  leituras acontecem antes de qualquer código do PR rodar: conferir, com
-  `lstat`, cada componente do caminho do projeto configurado (`APROVA_DIRETORIO`,
-  ou a raiz do clone quando ausente), e conferir se existe `go.mod` na raiz
-  desse projeto. O resultado é montado só a partir do que chega pelos pipes,
-  nunca de arquivo do diretório de trabalho.
+  leituras acontecem antes de qualquer código do PR rodar: quando há
+  `APROVA_DIRETORIO`, conferir com `lstat` cada componente desse caminho; e
+  conferir se existe `go.mod` na raiz do projeto, que é o próprio clone quando
+  `APROVA_DIRETORIO` está ausente. O resultado é montado só a partir do que
+  chega pelos pipes, nunca de arquivo do diretório de trabalho.
 - A saída dos comandos é capturada por pipe. O que o PR imprime vira texto
   dentro de `saida_bruta`, nunca uma linha própria no stdout do container.
 - Ao fim de cada comando, todo processo do uid 10001 que ficou para trás é
