@@ -28,8 +28,11 @@ keys:
 verificar-token:
 	@go run ./scripts/verificar-token $(INSTALLATION_ID)
 
+sandbox-azure: export REPOSITORIO := $(REPOSITORIO)
+sandbox-azure: export SHA := $(SHA)
+sandbox-azure: export DIRETORIO := $(DIRETORIO)
 sandbox-azure:
-	@go run ./scripts/disparar-sandbox-azure $(REPOSITORIO) $(SHA) $(DIRETORIO)
+	@go run ./scripts/disparar-sandbox-azure "$$REPOSITORIO" "$$SHA" "$$DIRETORIO"
 
 imagem-sandbox-go:
 	docker build -f imagens/go/Dockerfile -t aprova-sandbox-go:local .
