@@ -150,15 +150,16 @@ func (s *Servico) levantarSituacao(ctx context.Context, pedido Pedido, login str
 
 func (s *Servico) concluir(ctx context.Context, resultado desfecho) Decisao {
 	tentativa := Tentativa{
-		IDAcao:       resultado.pedido.IDAcao,
-		Tipo:         resultado.pedido.Tipo,
-		UsuarioSlack: resultado.pedido.UsuarioSlack,
-		LoginGitHub:  resultado.login,
-		Repositorio:  resultado.pedido.Repositorio,
-		NumeroPR:     resultado.pedido.NumeroPR,
-		Decisao:      resultado.decisao,
-		Motivo:       resultado.motivo,
-		Em:           s.agora(),
+		IDAcao:         resultado.pedido.IDAcao,
+		Tipo:           resultado.pedido.Tipo,
+		UsuarioSlack:   resultado.pedido.UsuarioSlack,
+		LoginGitHub:    resultado.login,
+		Repositorio:    resultado.pedido.Repositorio,
+		NumeroPR:       resultado.pedido.NumeroPR,
+		InstallationID: resultado.pedido.InstallationID,
+		Decisao:        resultado.decisao,
+		Motivo:         resultado.motivo,
+		Em:             s.agora(),
 	}
 
 	registrarNoDiario(ctx, tentativa, resultado.causa)
@@ -178,6 +179,7 @@ func registrarNoDiario(ctx context.Context, tentativa Tentativa, causa error) {
 		"login_github", tentativa.LoginGitHub,
 		"repositorio", tentativa.Repositorio,
 		"numero_pr", tentativa.NumeroPR,
+		"installation_id", tentativa.InstallationID,
 		"decisao", tentativa.Decisao,
 		"motivo", tentativa.Motivo,
 	}

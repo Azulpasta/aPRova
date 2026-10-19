@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -47,6 +48,9 @@ type cargaPullRequest struct {
 	Repositorio struct {
 		NomeCompleto string `json:"full_name"`
 	} `json:"repository"`
+	Instalacao struct {
+		ID int64 `json:"id"`
+	} `json:"installation"`
 }
 
 type cargaReview struct {
@@ -62,6 +66,9 @@ type cargaReview struct {
 	Repositorio struct {
 		NomeCompleto string `json:"full_name"`
 	} `json:"repository"`
+	Instalacao struct {
+		ID int64 `json:"id"`
+	} `json:"installation"`
 }
 
 func (s *Servidor) manipularWebhookGitHub(w http.ResponseWriter, r *http.Request) {
@@ -120,14 +127,20 @@ func (s *Servidor) processarPullRequest(ctx context.Context, entrega entregaRece
 		return http.StatusNoContent, nil
 	}
 
+	if carga.Instalacao.ID <= 0 {
+		entrega.diario.Warn("webhook de pull request sem installation.id")
+		return http.StatusBadRequest, nil
+	}
+
 	execucao, err := s.execucoes.RegistrarPullRequest(ctx, domain.EventoPullRequest{
-		DeliveryID:  entrega.deliveryID,
-		Repositorio: carga.Repositorio.NomeCompleto,
-		NumeroPR:    carga.Numero,
-		SHAHead:     carga.PullRequest.Head.SHA,
-		Autor:       carga.PullRequest.Usuario.Login,
-		Acao:        carga.Acao,
-		RecebidoEm:  time.Now().UTC(),
+		InstallationID: carga.Instalacao.ID,
+		DeliveryID:     entrega.deliveryID,
+		Repositorio:    carga.Repositorio.NomeCompleto,
+		NumeroPR:       carga.Numero,
+		SHAHead:        carga.PullRequest.Head.SHA,
+		Autor:          carga.PullRequest.Usuario.Login,
+		Acao:           carga.Acao,
+		RecebidoEm:     time.Now().UTC(),
 	})
 	if err != nil {
 		return 0, err
@@ -151,14 +164,25 @@ func (s *Servidor) processarRevisao(ctx context.Context, entrega entregaRecebida
 		return http.StatusNoContent, nil
 	}
 
+	if carga.Instalacao.ID <= 0 {
+		entrega.diario.Warn("webhook de revisão sem installation.id")
+		return http.StatusBadRequest, nil
+	}
+
 	err := s.execucoes.RegistrarRevisao(ctx, domain.DecisaoDeReview{
-		DeliveryID:  entrega.deliveryID,
-		Repositorio: carga.Repositorio.NomeCompleto,
-		NumeroPR:    carga.PullRequest.Numero,
-		Estado:      carga.Review.Estado,
-		Revisor:     carga.Review.Usuario.Login,
-		RecebidoEm:  time.Now().UTC(),
+		InstallationID: carga.Instalacao.ID,
+		DeliveryID:     entrega.deliveryID,
+		Repositorio:    carga.Repositorio.NomeCompleto,
+		NumeroPR:       carga.PullRequest.Numero,
+		Estado:         carga.Review.Estado,
+		Revisor:        carga.Review.Usuario.Login,
+		RecebidoEm:     time.Now().UTC(),
 	})
+	if errors.Is(err, domain.ErrNaoEncontrado) {
+		entrega.diario.Warn("revisão de pull request sem task_run ignorada",
+			"repositorio", carga.Repositorio.NomeCompleto, "numero_pr", carga.PullRequest.Numero)
+		return http.StatusNoContent, nil
+	}
 	if err != nil {
 		return 0, err
 	}

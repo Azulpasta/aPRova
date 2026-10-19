@@ -16,9 +16,10 @@ import (
 const segredoDeTeste = "segredo-de-teste"
 
 type registroFalso struct {
-	execucoes  map[string]domain.EventoPullRequest
-	porEntrega map[string]string
-	revisoes   []domain.DecisaoDeReview
+	execucoes      map[string]domain.EventoPullRequest
+	porEntrega     map[string]string
+	revisoes       []domain.DecisaoDeReview
+	semTaskRunNoPR bool
 }
 
 func novoRegistroFalso() *registroFalso {
@@ -41,6 +42,9 @@ func (r *registroFalso) RegistrarPullRequest(_ context.Context, evento domain.Ev
 }
 
 func (r *registroFalso) RegistrarRevisao(_ context.Context, decisao domain.DecisaoDeReview) error {
+	if r.semTaskRunNoPR {
+		return domain.ErrNaoEncontrado
+	}
 	r.revisoes = append(r.revisoes, decisao)
 	return nil
 }
@@ -87,7 +91,7 @@ func enviarWebhook(t *testing.T, registro *registroFalso, e entrega) *httptest.R
 func corpoPullRequest(acao string) string {
 	return `{"action":"` + acao + `","number":42,` +
 		`"pull_request":{"head":{"sha":"abc123"},"user":{"login":"alice"}},` +
-		`"repository":{"full_name":"Azulpasta/aPRova"}}`
+		`"repository":{"full_name":"Azulpasta/aPRova"},"installation":{"id":777}}`
 }
 
 func entregaValida(evento, deliveryID, corpo string) entrega {
@@ -153,7 +157,7 @@ func corpoReview(estado string) string {
 	return `{"action":"submitted",` +
 		`"review":{"state":"` + estado + `","user":{"login":"bob"}},` +
 		`"pull_request":{"number":42,"head":{"sha":"abc123"}},` +
-		`"repository":{"full_name":"Azulpasta/aPRova"}}`
+		`"repository":{"full_name":"Azulpasta/aPRova"},"installation":{"id":777}}`
 }
 
 func TestWebhookIgnoraTipoDeEventoNaoTratado(t *testing.T) {
@@ -254,5 +258,52 @@ func TestWebhookNaoDuplicaRegistroNaReentregaDoMesmoEvento(t *testing.T) {
 	}
 	if registro.quantidadeDeExecucoes() != 1 {
 		t.Errorf("o mesmo delivery ID deve criar exatamente uma execução, criou %d", registro.quantidadeDeExecucoes())
+	}
+}
+
+func TestWebhookRepassaAInstalacaoComoTenant(t *testing.T) {
+	registro := novoRegistroFalso()
+
+	enviarWebhook(t, registro, entregaValida("pull_request", "entrega-tenant", corpoPullRequest("opened")))
+	enviarWebhook(t, registro, entregaValida("pull_request_review", "entrega-tenant-review", corpoReview("approved")))
+
+	if evento := registro.execucoes["entrega-tenant-execucao"]; evento.InstallationID != 777 {
+		t.Errorf("o pull request deveria chegar com installation 777, chegou %d", evento.InstallationID)
+	}
+	if len(registro.revisoes) != 1 || registro.revisoes[0].InstallationID != 777 {
+		t.Errorf("a revisão deveria chegar com installation 777: %+v", registro.revisoes)
+	}
+}
+
+func TestWebhookSemInstalacaoERecusado(t *testing.T) {
+	semInstalacao := map[string]string{
+		"pull_request":        strings.Replace(corpoPullRequest("opened"), `,"installation":{"id":777}`, "", 1),
+		"pull_request_review": strings.Replace(corpoReview("approved"), `,"installation":{"id":777}`, "", 1),
+	}
+
+	for evento, corpo := range semInstalacao {
+		t.Run(evento, func(t *testing.T) {
+			registro := novoRegistroFalso()
+
+			resposta := enviarWebhook(t, registro, entregaValida(evento, "entrega-sem-instalacao", corpo))
+
+			if resposta.Code != http.StatusBadRequest {
+				t.Errorf("sem installation.id não há tenant, deveria responder 400, obtive %d", resposta.Code)
+			}
+			if registro.quantidadeDeExecucoes() != 0 || registro.quantidadeDeRevisoes() != 0 {
+				t.Error("nada deveria ser registrado sem tenant")
+			}
+		})
+	}
+}
+
+func TestWebhookIgnoraRevisaoDePullRequestSemTaskRun(t *testing.T) {
+	registro := novoRegistroFalso()
+	registro.semTaskRunNoPR = true
+
+	resposta := enviarWebhook(t, registro, entregaValida("pull_request_review", "entrega-orfa", corpoReview("approved")))
+
+	if resposta.Code != http.StatusNoContent {
+		t.Errorf("revisão de PR que o aPRova não analisou deve responder 204, obtive %d", resposta.Code)
 	}
 }

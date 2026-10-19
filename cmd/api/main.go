@@ -69,7 +69,7 @@ func executar() error {
 		Handler: api.NovoServidor(api.Opcoes{
 			Dependencias:        dependencias(bancoDados, clienteRedis),
 			SegredoWebhook:      []byte(configuracao.GitHubSegredoWebhook),
-			Execucoes:           repository.NovoRegistroDeExecucoes(bancoDados),
+			Execucoes:           repository.NovoRepositorioPostgres(bancoDados, repository.OpcoesPostgres{}),
 			SegredoAcoesRemotas: []byte(configuracao.N8NSegredoAcoes),
 			AcoesRemotas:        acoesRemotas,
 		}).Rotas(),

@@ -1,8 +1,17 @@
 COMPOSE ?= docker-compose
 POSTGRES_USER ?= aprova
+POSTGRES_PASSWORD ?= aprova
 POSTGRES_DB ?= aprova
+POSTGRES_PORT ?= 5432
+DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
+MIGRATE ?= migrate
+SQLC ?= sqlc
 
-.PHONY: up down migrate run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao imagem-sandbox-go
+# A URL vai para o ambiente dos comandos em vez de ser colada na linha do
+# shell, para que aspas ou metacaracteres na senha não virem comando.
+export DATABASE_URL
+
+.PHONY: up down migrate migrate-up migrate-down migrate-reset sqlc test-banco run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao imagem-sandbox-go
 
 up:
 	$(COMPOSE) up -d --wait
@@ -10,11 +19,24 @@ up:
 down:
 	$(COMPOSE) down
 
-migrate:
-	@for arquivo in migrations/*.up.sql; do \
-		echo "aplicando $$arquivo"; \
-		$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f - < "$$arquivo" || exit 1; \
-	done
+migrate: migrate-up
+
+migrate-up:
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" up
+
+migrate-down:
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down 1
+
+migrate-reset:
+	@if [ "$(CONFIRMAR)" != "sim" ]; then \
+		echo "migrate-reset apaga todas as tabelas do banco configurado"; \
+		echo "para confirmar: make migrate-reset CONFIRMAR=sim"; \
+		exit 1; \
+	fi
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down -all
+
+sqlc:
+	$(SQLC) generate
 
 run-api:
 	go run ./cmd/api
@@ -42,6 +64,9 @@ consultar-permissao:
 
 test:
 	go test ./...
+
+test-banco:
+	go test ./tests/integration/postgres/... -race -count=1 -v
 
 lint:
 	golangci-lint run

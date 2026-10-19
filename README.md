@@ -12,6 +12,13 @@ saúde e aceita o webhook, mas nenhuma dessas regras está implementada ainda.
 - Go 1.26.9 ou superior (versão fixada na diretiva `toolchain` do `go.mod`)
 - Docker e Docker Compose
 - golangci-lint, para o alvo `make lint`
+- [golang-migrate](https://github.com/golang-migrate/migrate) e
+  [sqlc](https://sqlc.dev), para as migrações e a geração de código:
+
+  ```sh
+  go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+  go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+  ```
 
 ## Configuração
 
@@ -72,11 +79,16 @@ Suba o PostgreSQL e o Redis e espere ficarem saudáveis:
 make up
 ```
 
-Aplique as migrações:
+Aplique as migrações (o alvo usa `DATABASE_URL`, que por padrão aponta para o
+Postgres do Compose):
 
 ```sh
-make migrate
+make migrate-up
 ```
+
+`make migrate-down` desfaz a última e `make migrate-reset CONFIRMAR=sim` desfaz
+todas. Os alvos montam a URL a partir de `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_PORT` e `POSTGRES_DB`; para outro banco, passe `DATABASE_URL`.
 
 Em um terminal, suba a API:
 
@@ -149,22 +161,60 @@ make consultar-permissao INSTALLATION_ID=12345678 REPOSITORIO=dono/repo LOGIN=al
 Testes unitários ficam no mesmo pacote do código testado, como arquivos
 `*_test.go`. O diretório `tests/` é reservado para testes que cruzam pacotes ou
 dependem de serviço externo: `tests/integration` (Docker real, com a imagem do sandbox; pulam sem Docker),
+`tests/integration/postgres` (Postgres com pgvector via testcontainers; pulam sem Docker, mas reprovam no CI),
 `tests/functional` (requisitos de negócio ponta a ponta) e `tests/e2e` (contra
 Pull Request real).
 
 ```sh
 make test
+make test-banco
 make lint
 ```
 
-## Geração de código
+## Banco de dados
 
-As queries em `queries/` e o schema em `migrations/` alimentam o sqlc, que gera
-o código de acesso a dados em `internal/repository`:
+O modelo está em [docs/modelo-dados.html](docs/modelo-dados.html). São nove
+tabelas, todas com `tenant_id` (o `installation_id` do GitHub) obrigatório e
+indexado. `task_runs` é a raiz das tabelas relacionadas; só `identity_links`
+fica de fora:
+
+| Tabela | Papel | Ao apagar o `task_run` |
+| --- | --- | --- |
+| `task_runs` | uma análise por entrega do webhook (`delivery_id` único) | — |
+| `task_steps` | cada transição de estado | apagadas junto (`CASCADE`) |
+| `sandbox_results` | resultado normalizado do sandbox, por tentativa | apagadas junto (`CASCADE`) |
+| `risk_gates` | nível e motivo nomeado do gate, um por análise | impede (`RESTRICT`) |
+| `receipts` | recibo assinado, um por análise, **append-only** | impede (`RESTRICT`) |
+| `approvals` | decisão humana de revisão | impede (`RESTRICT`) |
+| `code_memory` | decisões passadas com embedding, para a calibração | ficam, com `task_run_id` nulo |
+| `identity_links` | vínculo usuário do Slack → login do GitHub | não se relaciona |
+| `remote_action_attempts` | toda ação remota autenticada (`action_id` único) | ficam, com `task_run_id` nulo |
+
+`receipts` é append-only no próprio banco: um trigger recusa `UPDATE`, `DELETE`
+e `TRUNCATE`, mesmo vindos de fora da aplicação. O trigger, porém, não segura
+o dono da tabela: quem roda as migrations pode desligá-lo ou apagá-lo. Hoje a
+aplicação e as migrations usam o mesmo usuário, então a garantia vale contra
+erro de código, não contra quem tem a credencial do banco. Para fechar isso em
+produção, rode as migrations com um usuário dono das tabelas e dê ao usuário
+da aplicação só `SELECT` e `INSERT` em `receipts`.
+
+Os estados do `task_run` seguem [docs/maquina-estados.mmd](docs/maquina-estados.mmd).
+
+### Geração de código
+
+As queries em `queries/` (um arquivo por tabela) e o schema em `migrations/`
+alimentam o sqlc, que gera o código em `internal/repository/db`. O código
+gerado é commitado, e o CI reprova se ele estiver desatualizado:
 
 ```sh
-sqlc generate
+make sqlc
 ```
+
+Quem usa o banco é o `RepositorioPostgres`, em `internal/repository`. Ele
+implementa `RepositorioTaskRun` e `RepositorioRecibo` (de `internal/domain`),
+além de `sandbox.ColetorResultado` e `acaoremota.RegistroTentativas`, que podem
+substituir as versões em memória sem mudar quem as chama. `EmTransacao(ctx, fn)`
+roda várias operações numa única transação.
 
 ## Integração contínua
 
@@ -240,6 +290,10 @@ Na regra para `main`, marque como obrigatório:
 - **Require branches to be up to date before merging**, para que o check tenha
   rodado contra o estado real do merge
 - **Do not allow bypassing the above settings**, senão a proteção vira sugestão
+
+Marque também **`banco`**, o job que aplica todas as migrações num Postgres
+limpo, desce até zero, confere que o `sqlc generate` não deixa diff e roda a
+integração com o banco.
 
 O check só aparece na lista depois que o workflow rodar ao menos uma vez na
 branch. Se a lista estiver vazia, faça um push qualquer e volte à tela.

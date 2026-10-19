@@ -13,6 +13,8 @@ env:
   VERSAO_GITLEAKS: "8.30.1"
   VERSAO_GOLANGCI_LINT: "v2.13.2"
   VERSAO_GOVULNCHECK: "v1.8.0"
+  VERSAO_MIGRATE: "v4.19.1"
+  VERSAO_SQLC: "v1.30.0"
 
 jobs:
   verificacao:
@@ -66,6 +68,75 @@ jobs:
           path: coverage.out
           if-no-files-found: warn
           retention-days: 30
+
+  banco:
+    name: banco
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: aprova
+          POSTGRES_PASSWORD: aprova
+          POSTGRES_DB: aprova
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aprova -d aprova"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      URL_BANCO: postgres://aprova:aprova@localhost:5432/aprova?sslmode=disable
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: instalar golang-migrate e sqlc
+        run: |
+          go install -tags postgres "github.com/golang-migrate/migrate/v4/cmd/migrate@${VERSAO_MIGRATE}"
+          go install "github.com/sqlc-dev/sqlc/cmd/sqlc@${VERSAO_SQLC}"
+
+      - name: migrations sobem num postgres limpo
+        run: migrate -path migrations -database "$URL_BANCO" up
+
+      - name: migrations descem até zero
+        run: migrate -path migrations -database "$URL_BANCO" down -all
+
+      - name: nada sobrou depois do down
+        run: |
+          sobras=$(psql "$URL_BANCO" -Atc "
+            SELECT count(*) FROM (
+              SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations'
+              UNION ALL
+              SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
+              UNION ALL
+              SELECT extname FROM pg_extension WHERE extname <> 'plpgsql'
+            ) objetos")
+          echo "objetos que sobraram: $sobras"
+          test "$sobras" = "0"
+
+      - name: sqlc generate sem diff
+        run: |
+          sqlc generate
+          git add -N internal/repository/db
+          git diff --exit-code -- internal/repository/db
+
+      - name: integração com o postgres (testcontainers)
+        env:
+          CI: "true"
+        run: go test ./tests/integration/postgres/... -race -count=1 -v
 
   mudancas:
     name: mudancas
@@ -126,7 +197,7 @@ jobs:
           cache: true
 
       - name: integração com a imagem real do sandbox
-        run: go test ./tests/integration/... -race -count=1 -v
+        run: go test ./tests/integration -race -count=1 -v
 
   sandbox:
     name: sandbox
