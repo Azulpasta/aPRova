@@ -7,6 +7,10 @@ DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POS
 MIGRATE ?= migrate
 SQLC ?= sqlc
 
+# A URL vai para o ambiente dos comandos em vez de ser colada na linha do
+# shell, para que aspas ou metacaracteres na senha não virem comando.
+export DATABASE_URL
+
 .PHONY: up down migrate migrate-up migrate-down migrate-reset sqlc test-banco run-api run-worker test lint keys verificar-token sandbox-azure consultar-permissao imagem-sandbox-go
 
 up:
@@ -18,18 +22,18 @@ down:
 migrate: migrate-up
 
 migrate-up:
-	$(MIGRATE) -path migrations -database "$(DATABASE_URL)" up
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" up
 
 migrate-down:
-	$(MIGRATE) -path migrations -database "$(DATABASE_URL)" down 1
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down 1
 
 migrate-reset:
 	@if [ "$(CONFIRMAR)" != "sim" ]; then \
-		echo "migrate-reset apaga todas as tabelas de $(DATABASE_URL)"; \
+		echo "migrate-reset apaga todas as tabelas do banco configurado"; \
 		echo "para confirmar: make migrate-reset CONFIRMAR=sim"; \
 		exit 1; \
 	fi
-	$(MIGRATE) -path migrations -database "$(DATABASE_URL)" down -all
+	$(MIGRATE) -path migrations -database "$$DATABASE_URL" down -all
 
 sqlc:
 	$(SQLC) generate

@@ -239,6 +239,12 @@ func TestReciboSoEncadeiaComReciboDoMesmoTenant(t *testing.T) {
 		t.Errorf("encadear no mesmo tenant deveria funcionar: %v", err)
 	}
 
+	bifurcacao := reciboDeExemplo(novoTaskRun(t, repo, tenant).ID)
+	bifurcacao.ReciboAnteriorID = &original.ID
+	if _, err := repo.AnexarRecibo(t.Context(), bifurcacao); !errors.Is(err, domain.ErrDuplicado) {
+		t.Errorf("um segundo sucessor do mesmo recibo deveria dar ErrDuplicado, obtive %v", err)
+	}
+
 	deOutroTenant := reciboDeExemplo(novoTaskRun(t, repo, novoTenant()).ID)
 	deOutroTenant.ReciboAnteriorID = &original.ID
 	if _, err := repo.AnexarRecibo(t.Context(), deOutroTenant); !errors.Is(err, domain.ErrNaoEncontrado) {
