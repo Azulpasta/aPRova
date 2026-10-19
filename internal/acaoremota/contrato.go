@@ -67,15 +67,16 @@ type AcaoAutorizada struct {
 
 // Tentativa é o registro de um pedido autenticado, aceito ou recusado.
 type Tentativa struct {
-	IDAcao       string
-	Tipo         Tipo
-	UsuarioSlack string
-	LoginGitHub  string
-	Repositorio  string
-	NumeroPR     int
-	Decisao      Decisao
-	Motivo       Motivo
-	Em           time.Time
+	IDAcao         string
+	Tipo           Tipo
+	UsuarioSlack   string
+	LoginGitHub    string
+	Repositorio    string
+	NumeroPR       int
+	InstallationID int64
+	Decisao        Decisao
+	Motivo         Motivo
+	Em             time.Time
 }
 
 // ResolvedorIdentidade traduz o usuário do canal externo para o login no GitHub.

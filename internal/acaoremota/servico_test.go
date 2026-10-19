@@ -155,15 +155,16 @@ func TestServicoRecusaAprovacaoDeQuemSoLeORepositorio(t *testing.T) {
 
 	tentativa := c.unicaTentativa(t)
 	esperada := Tentativa{
-		IDAcao:       "acao-1",
-		Tipo:         TipoAprovar,
-		UsuarioSlack: "U-LEITOR",
-		LoginGitHub:  "dave",
-		Repositorio:  "Azulpasta/aPRova",
-		NumeroPR:     42,
-		Decisao:      DecisaoRecusada,
-		Motivo:       MotivoPermissaoInsuficiente,
-		Em:           momentoDeTeste,
+		IDAcao:         "acao-1",
+		Tipo:           TipoAprovar,
+		UsuarioSlack:   "U-LEITOR",
+		LoginGitHub:    "dave",
+		Repositorio:    "Azulpasta/aPRova",
+		NumeroPR:       42,
+		InstallationID: 7001,
+		Decisao:        DecisaoRecusada,
+		Motivo:         MotivoPermissaoInsuficiente,
+		Em:             momentoDeTeste,
 	}
 	if tentativa != esperada {
 		t.Errorf("registro da recusa\nobtido:   %+v\nesperado: %+v", tentativa, esperada)
