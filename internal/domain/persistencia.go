@@ -81,8 +81,8 @@ type NovoTaskRun struct {
 	TenantID    int64     `validate:"required,gt=0"`
 	DeliveryID  string    `validate:"required,max=100"`
 	Repositorio string    `validate:"required,max=200"`
-	NumeroPR    int       `validate:"required,gt=0"`
-	SHAHead     string    `validate:"required,hexadecimal,min=40,max=64"`
+	NumeroPR    int       `validate:"required,gt=0,max=2147483647"`
+	SHAHead     string    `validate:"required,hexadecimal,len=40|len=64"`
 	Autor       string    `validate:"required,max=100"`
 	Acao        string    `validate:"required,max=50"`
 	RecebidoEm  time.Time `validate:"required"`
@@ -109,7 +109,7 @@ type TaskRun struct {
 type Transicao struct {
 	TaskRunID string        `validate:"required,uuid"`
 	De        EstadoTaskRun `validate:"required,oneof=pendente mapeando_contexto gerando testando_sandbox avaliando_risco aguardando_aprovacao aplicando concluido rejeitado falhou"`
-	Para      EstadoTaskRun `validate:"required,nefield=De,oneof=pendente mapeando_contexto gerando testando_sandbox avaliando_risco aguardando_aprovacao aplicando concluido rejeitado falhou"`
+	Para      EstadoTaskRun `validate:"required,oneof=pendente mapeando_contexto gerando testando_sandbox avaliando_risco aguardando_aprovacao aplicando concluido rejeitado falhou"`
 	Detalhe   string        `validate:"max=4000"`
 }
 

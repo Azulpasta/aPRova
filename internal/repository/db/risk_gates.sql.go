@@ -43,22 +43,3 @@ func (q *Queries) CreateRiskGate(ctx context.Context, arg CreateRiskGateParams) 
 	)
 	return i, err
 }
-
-const getRiskGateByTaskRun = `-- name: GetRiskGateByTaskRun :one
-SELECT id, tenant_id, task_run_id, deterministic_level, level, reason, created_at FROM risk_gates WHERE task_run_id = $1
-`
-
-func (q *Queries) GetRiskGateByTaskRun(ctx context.Context, taskRunID string) (RiskGate, error) {
-	row := q.db.QueryRow(ctx, getRiskGateByTaskRun, taskRunID)
-	var i RiskGate
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.TaskRunID,
-		&i.DeterministicLevel,
-		&i.Level,
-		&i.Reason,
-		&i.CreatedAt,
-	)
-	return i, err
-}

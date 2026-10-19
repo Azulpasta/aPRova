@@ -1,3 +1,5 @@
+-- Um id_acao repetido mantém o primeiro registro, por isso não há decisão
+-- 'repetida' aqui: a repetição fica só no log.
 CREATE TABLE remote_action_attempts (
     action_id     text PRIMARY KEY,
     tenant_id     bigint NOT NULL CHECK (tenant_id > 0),
@@ -7,7 +9,7 @@ CREATE TABLE remote_action_attempts (
     github_login  text,
     repository    text NOT NULL,
     pr_number     integer NOT NULL CHECK (pr_number > 0),
-    decision      text NOT NULL CHECK (decision IN ('aceita', 'recusada', 'repetida', 'falha')),
+    decision      text NOT NULL CHECK (decision IN ('aceita', 'recusada', 'falha')),
     reason        text NOT NULL,
     attempted_at  timestamptz NOT NULL,
     created_at    timestamptz NOT NULL DEFAULT now()

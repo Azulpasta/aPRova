@@ -14,8 +14,12 @@ import (
 
 const createCodeMemory = `-- name: CreateCodeMemory :one
 INSERT INTO code_memory (tenant_id, task_run_id, repository, summary, embedding, level, outcome)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, tenant_id, task_run_id, repository, summary, embedding, level, outcome, created_at
+SELECT $1, $2, $3, $4,
+       $5, $6, $7
+WHERE $2::uuid IS NULL OR EXISTS (
+    SELECT 1 FROM task_runs tr
+    WHERE tr.id = $2::uuid AND tr.tenant_id = $1)
+RETURNING id
 `
 
 type CreateCodeMemoryParams struct {
@@ -28,7 +32,8 @@ type CreateCodeMemoryParams struct {
 	Outcome    string          `json:"outcome"`
 }
 
-func (q *Queries) CreateCodeMemory(ctx context.Context, arg CreateCodeMemoryParams) (CodeMemory, error) {
+// Com task_run, ele precisa ser do mesmo tenant; senão nenhuma linha entra.
+func (q *Queries) CreateCodeMemory(ctx context.Context, arg CreateCodeMemoryParams) (int64, error) {
 	row := q.db.QueryRow(ctx, createCodeMemory,
 		arg.TenantID,
 		arg.TaskRunID,
@@ -38,19 +43,9 @@ func (q *Queries) CreateCodeMemory(ctx context.Context, arg CreateCodeMemoryPara
 		arg.Level,
 		arg.Outcome,
 	)
-	var i CodeMemory
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.TaskRunID,
-		&i.Repository,
-		&i.Summary,
-		&i.Embedding,
-		&i.Level,
-		&i.Outcome,
-		&i.CreatedAt,
-	)
-	return i, err
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const findNearestCodeMemory = `-- name: FindNearestCodeMemory :many
@@ -80,7 +75,9 @@ type FindNearestCodeMemoryRow struct {
 	Distance   float64   `json:"distance"`
 }
 
-// Distância de cosseno, a mesma do índice HNSW. Só olha o próprio tenant.
+// Distância de cosseno, a mesma do índice HNSW. Só olha o próprio tenant; o
+// repositório liga hnsw.iterative_scan antes, para o filtro não esvaziar o
+// resultado de um tenant pequeno.
 func (q *Queries) FindNearestCodeMemory(ctx context.Context, arg FindNearestCodeMemoryParams) ([]FindNearestCodeMemoryRow, error) {
 	rows, err := q.db.Query(ctx, findNearestCodeMemory, arg.Embedding, arg.TenantID, arg.MaxResults)
 	if err != nil {

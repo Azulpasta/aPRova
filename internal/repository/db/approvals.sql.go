@@ -45,38 +45,3 @@ func (q *Queries) CreateApproval(ctx context.Context, arg CreateApprovalParams) 
 	}
 	return result.RowsAffected(), nil
 }
-
-const listApprovalsByTaskRun = `-- name: ListApprovalsByTaskRun :many
-SELECT id, tenant_id, task_run_id, delivery_id, decision, reviewer, feedback_reason, justification, decided_at, created_at FROM approvals WHERE task_run_id = $1 ORDER BY decided_at, id
-`
-
-func (q *Queries) ListApprovalsByTaskRun(ctx context.Context, taskRunID string) ([]Approval, error) {
-	rows, err := q.db.Query(ctx, listApprovalsByTaskRun, taskRunID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Approval{}
-	for rows.Next() {
-		var i Approval
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.TaskRunID,
-			&i.DeliveryID,
-			&i.Decision,
-			&i.Reviewer,
-			&i.FeedbackReason,
-			&i.Justification,
-			&i.DecidedAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}

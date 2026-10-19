@@ -179,6 +179,7 @@ func registrarNoDiario(ctx context.Context, tentativa Tentativa, causa error) {
 		"login_github", tentativa.LoginGitHub,
 		"repositorio", tentativa.Repositorio,
 		"numero_pr", tentativa.NumeroPR,
+		"installation_id", tentativa.InstallationID,
 		"decisao", tentativa.Decisao,
 		"motivo", tentativa.Motivo,
 	}

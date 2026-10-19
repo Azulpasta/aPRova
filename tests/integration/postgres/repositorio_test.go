@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math"
+	"math/rand/v2"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/Azulpasta/aPRova/internal/domain"
 	"github.com/Azulpasta/aPRova/internal/repository"
 	"github.com/Azulpasta/aPRova/internal/sandbox"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var errProposital = errors.New("erro proposital")
@@ -101,6 +103,44 @@ func TestTransicionarRegistraEtapaERecusaEstadoDesatualizado(t *testing.T) {
 	}
 }
 
+func TestTransicionarTaskRunInexistenteDevolveNaoEncontrado(t *testing.T) {
+	repo := exigirBanco(t)
+
+	_, err := repo.TransicionarTaskRun(t.Context(), domain.Transicao{
+		TaskRunID: "00000000-0000-0000-0000-000000000000", De: domain.EstadoPendente, Para: domain.EstadoMapeandoContexto,
+	})
+	if !errors.Is(err, domain.ErrNaoEncontrado) {
+		t.Errorf("esperava ErrNaoEncontrado, obtive %v", err)
+	}
+}
+
+func TestTransicionarPermiteOLacoDeRevisaoSemDecisao(t *testing.T) {
+	repo := exigirBanco(t)
+	taskRun := novoTaskRun(t, repo, novoTenant())
+	if _, err := pool.Exec(t.Context(), `UPDATE task_runs SET state = 'aguardando_aprovacao' WHERE id = $1`, taskRun.ID); err != nil {
+		t.Fatalf("preparar estado: %v", err)
+	}
+
+	_, err := repo.TransicionarTaskRun(t.Context(), domain.Transicao{
+		TaskRunID: taskRun.ID, De: domain.EstadoAguardandoAprovacao, Para: domain.EstadoAguardandoAprovacao, Detalhe: "review sem decisão",
+	})
+	if err != nil {
+		t.Errorf("aguardando_aprovacao → aguardando_aprovacao está em docs/maquina-estados.mmd e deveria passar: %v", err)
+	}
+}
+
+func TestCriarTaskRunRecusaNumeroDePRForaDoInteger(t *testing.T) {
+	repo := exigirBanco(t)
+
+	_, _, err := repo.CriarTaskRun(t.Context(), domain.NovoTaskRun{
+		TenantID: novoTenant(), DeliveryID: "pr-gigante", Repositorio: "Azulpasta/alvo", NumeroPR: 1 << 31,
+		SHAHead: "0123456789abcdef0123456789abcdef01234567", Autor: "a", Acao: "opened", RecebidoEm: time.Now(),
+	})
+	if !errors.Is(err, domain.ErrDadosInvalidos) {
+		t.Errorf("esperava ErrDadosInvalidos para PR acima de int32, obtive %v", err)
+	}
+}
+
 func TestTransacaoDesfeitaNaoDeixaLinha(t *testing.T) {
 	repo := exigirBanco(t)
 	tenant := novoTenant()
@@ -182,6 +222,27 @@ func TestReciboAnexadoPodeSerLido(t *testing.T) {
 
 	if _, err := repo.AnexarRecibo(t.Context(), reciboDeExemplo(taskRun.ID)); !errors.Is(err, domain.ErrDuplicado) {
 		t.Errorf("um segundo recibo para o mesmo task_run deveria dar ErrDuplicado, obtive %v", err)
+	}
+}
+
+func TestReciboSoEncadeiaComReciboDoMesmoTenant(t *testing.T) {
+	repo := exigirBanco(t)
+	tenant := novoTenant()
+	original, err := repo.AnexarRecibo(t.Context(), reciboDeExemplo(novoTaskRun(t, repo, tenant).ID))
+	if err != nil {
+		t.Fatalf("anexar original: %v", err)
+	}
+
+	reversao := reciboDeExemplo(novoTaskRun(t, repo, tenant).ID)
+	reversao.ReciboAnteriorID = &original.ID
+	if _, err := repo.AnexarRecibo(t.Context(), reversao); err != nil {
+		t.Errorf("encadear no mesmo tenant deveria funcionar: %v", err)
+	}
+
+	deOutroTenant := reciboDeExemplo(novoTaskRun(t, repo, novoTenant()).ID)
+	deOutroTenant.ReciboAnteriorID = &original.ID
+	if _, err := repo.AnexarRecibo(t.Context(), deOutroTenant); !errors.Is(err, domain.ErrNaoEncontrado) {
+		t.Errorf("encadear em recibo de outro tenant deveria dar ErrNaoEncontrado, obtive %v", err)
 	}
 }
 
@@ -305,13 +366,30 @@ func registrarRevisao(t *testing.T, repo *repository.RepositorioPostgres, taskRu
 
 func TestRegistrarRevisaoVinculaAoTaskRunMaisRecenteENaoDuplica(t *testing.T) {
 	repo := exigirBanco(t)
-	taskRun := novoTaskRun(t, repo, novoTenant())
+	tenant := novoTenant()
+	antigo := novoTaskRun(t, repo, tenant)
+	recente := novoTaskRun(t, repo, tenant)
 
-	registrarRevisao(t, repo, taskRun, "revisao-"+taskRun.ID)
-	registrarRevisao(t, repo, taskRun, "revisao-"+taskRun.ID)
+	registrarRevisao(t, repo, recente, "revisao-"+recente.ID)
+	registrarRevisao(t, repo, recente, "revisao-"+recente.ID)
 
-	if total := contar(t, `SELECT count(*) FROM approvals WHERE task_run_id = $1 AND decision = 'aprovada'`, taskRun.ID); total != 1 {
-		t.Errorf("esperava 1 aprovação, obtive %d", total)
+	if total := contar(t, `SELECT count(*) FROM approvals WHERE task_run_id = $1 AND decision = 'aprovada'`, recente.ID); total != 1 {
+		t.Errorf("esperava 1 aprovação no task_run mais recente, obtive %d", total)
+	}
+	if total := contar(t, `SELECT count(*) FROM approvals WHERE task_run_id = $1`, antigo.ID); total != 0 {
+		t.Errorf("a aprovação não deveria ir para o task_run antigo, foram %d", total)
+	}
+}
+
+func TestRegistrarAprovacaoDeTaskRunInexistente(t *testing.T) {
+	repo := exigirBanco(t)
+
+	err := repo.RegistrarAprovacao(t.Context(), domain.Aprovacao{
+		TaskRunID: "00000000-0000-0000-0000-000000000000", DeliveryID: "aprovacao-orfa", Decisao: domain.DecisaoAprovada,
+		Revisor: "revisora", DecididaEm: time.Now().UTC(),
+	})
+	if !errors.Is(err, domain.ErrNaoEncontrado) {
+		t.Errorf("esperava ErrNaoEncontrado, obtive %v", err)
 	}
 }
 
@@ -380,6 +458,54 @@ func TestBuscaVetorialDevolveOVizinhoMaisProximo(t *testing.T) {
 	}
 }
 
+func TestMemoriaDeCodigoRecusaTaskRunDeOutroTenant(t *testing.T) {
+	repo := exigirBanco(t)
+	alheio := novoTaskRun(t, repo, novoTenant())
+
+	if _, err := repo.GravarMemoriaDeCodigo(t.Context(), memoria(novoTenant(), &alheio.ID, vetorUnitario(0))); !errors.Is(err, domain.ErrNaoEncontrado) {
+		t.Errorf("esperava ErrNaoEncontrado ao misturar tenants, obtive %v", err)
+	}
+}
+
+func TestBuscaVetorialAchaOsVizinhosDeOutroTenantPeloHNSW(t *testing.T) {
+	repo := exigirBanco(t)
+	vizinho, consultado := novoTenant(), novoTenant()
+	aleatorio := rand.New(rand.NewPCG(1, 2))
+
+	// O outro tenant ocupa toda a vizinhança da consulta. Sem varredura
+	// iterativa, o HNSW entrega só os ef_search candidatos mais próximos, todos
+	// do outro tenant, e o filtro por tenant esvazia o resultado.
+	gravar := func(tenant int64, perto bool) {
+		vetor := make([]float32, domain.DimensoesEmbedding)
+		for i := range vetor {
+			vetor[i] = aleatorio.Float32() - 0.5
+		}
+		if perto {
+			vetor[0] = 30
+		}
+		if _, err := repo.GravarMemoriaDeCodigo(t.Context(), memoria(tenant, nil, vetor)); err != nil {
+			t.Fatalf("gravar memória: %v", err)
+		}
+	}
+	for range 200 {
+		gravar(vizinho, true)
+	}
+	for range 20 {
+		gravar(consultado, false)
+	}
+	if _, err := pool.Exec(t.Context(), `ANALYZE code_memory`); err != nil {
+		t.Fatalf("analyze: %v", err)
+	}
+
+	vizinhos, err := repositorioPeloHNSW(t).BuscarVizinhos(t.Context(), consultado, vetorUnitario(0), 5)
+	if err != nil {
+		t.Fatalf("buscar vizinhos: %v", err)
+	}
+	if len(vizinhos) != 5 {
+		t.Errorf("o tenant consultado tem 20 memórias e deveria receber 5, recebeu %d", len(vizinhos))
+	}
+}
+
 func TestBuscaVetorialRecusaDimensaoErrada(t *testing.T) {
 	repo := exigirBanco(t)
 
@@ -425,6 +551,10 @@ func TestColetorPostgresEntregaOResultadoGravado(t *testing.T) {
 	}
 	if obtido != resultado {
 		t.Errorf("esperava %+v, obtive %+v", resultado, obtido)
+	}
+
+	if tentativa := contar(t, `SELECT attempt FROM sandbox_results WHERE task_run_id = $1`, taskRun.ID); tentativa != 1 {
+		t.Errorf("o coletor deveria gravar a tentativa 1, gravou %d", tentativa)
 	}
 
 	if err := repo.Gravar(t.Context(), taskRun.ID, resultado); !errors.Is(err, sandbox.ErrResultadoJaGravado) {
@@ -495,4 +625,25 @@ func TestRegistroDeTentativasIgnoraPedidoInvalido(t *testing.T) {
 	if total := contar(t, `SELECT count(*) FROM remote_action_attempts WHERE action_id = $1`, invalida.IDAcao); total != 0 {
 		t.Errorf("pedido inválido não deveria ir para o banco")
 	}
+}
+
+// repositorioPeloHNSW usa conexões em que o planejador não pode ordenar por
+// conta própria, o que obriga a busca a passar pelo índice HNSW em vez do
+// índice de tenant_id, como aconteceria numa tabela grande.
+func repositorioPeloHNSW(t *testing.T) *repository.RepositorioPostgres {
+	t.Helper()
+
+	configuracao, err := pgxpool.ParseConfig(urlBase)
+	if err != nil {
+		t.Fatalf("configurar pool: %v", err)
+	}
+	configuracao.ConnConfig.RuntimeParams["enable_sort"] = "off"
+
+	poolComIndice, err := pgxpool.NewWithConfig(t.Context(), configuracao)
+	if err != nil {
+		t.Fatalf("abrir pool: %v", err)
+	}
+	t.Cleanup(poolComIndice.Close)
+
+	return repository.NovoRepositorioPostgres(poolComIndice, repository.OpcoesPostgres{})
 }

@@ -29,6 +29,7 @@ var (
 	urlBase       string
 	pool          *pgxpool.Pool
 	falhaAoSubir  error
+	semDocker     bool
 	proximoTenant atomic.Int64
 )
 
@@ -58,6 +59,7 @@ func subirPostgres(ctx context.Context) (*tcpostgres.PostgresContainer, error) {
 		tcpostgres.BasicWaitStrategies(),
 	)
 	if err != nil {
+		semDocker = true
 		return nil, fmt.Errorf("subir postgres: %w", err)
 	}
 
@@ -104,11 +106,13 @@ func fecharMigracao(migracao *migrate.Migrate) {
 func exigirBanco(t *testing.T) *repository.RepositorioPostgres {
 	t.Helper()
 
+	// Só a falta de Docker localmente vira skip; migration ou conexão
+	// quebradas reprovam sempre.
 	if falhaAoSubir != nil {
-		if os.Getenv("CI") != "" {
-			t.Fatalf("postgres indisponível no CI: %v", falhaAoSubir)
+		if semDocker && os.Getenv("CI") == "" {
+			t.Skipf("postgres indisponível (docker ausente?): %v", falhaAoSubir)
 		}
-		t.Skipf("postgres indisponível (docker ausente?): %v", falhaAoSubir)
+		t.Fatalf("preparar o postgres: %v", falhaAoSubir)
 	}
 	return repository.NovoRepositorioPostgres(pool, repository.OpcoesPostgres{IntervaloConsulta: 20 * time.Millisecond})
 }

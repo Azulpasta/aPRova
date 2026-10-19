@@ -60,27 +60,3 @@ func (q *Queries) CreateRemoteActionAttempt(ctx context.Context, arg CreateRemot
 	}
 	return result.RowsAffected(), nil
 }
-
-const getRemoteActionAttempt = `-- name: GetRemoteActionAttempt :one
-SELECT action_id, tenant_id, task_run_id, action_type, slack_user_id, github_login, repository, pr_number, decision, reason, attempted_at, created_at FROM remote_action_attempts WHERE action_id = $1
-`
-
-func (q *Queries) GetRemoteActionAttempt(ctx context.Context, actionID string) (RemoteActionAttempt, error) {
-	row := q.db.QueryRow(ctx, getRemoteActionAttempt, actionID)
-	var i RemoteActionAttempt
-	err := row.Scan(
-		&i.ActionID,
-		&i.TenantID,
-		&i.TaskRunID,
-		&i.ActionType,
-		&i.SlackUserID,
-		&i.GithubLogin,
-		&i.Repository,
-		&i.PrNumber,
-		&i.Decision,
-		&i.Reason,
-		&i.AttemptedAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}

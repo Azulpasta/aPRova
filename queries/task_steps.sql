@@ -4,6 +4,3 @@ SELECT tr.tenant_id, tr.id, sqlc.arg(from_state), sqlc.arg(to_state), sqlc.arg(d
 FROM task_runs tr
 WHERE tr.id = sqlc.arg(task_run_id)
 RETURNING *;
-
--- name: ListTaskSteps :many
-SELECT * FROM task_steps WHERE task_run_id = $1 ORDER BY id;

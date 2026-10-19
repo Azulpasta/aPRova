@@ -93,10 +93,12 @@ func TestChecksRecusamValoresForaDaLista(t *testing.T) {
 	taskRun := novoTaskRun(t, repo, tenant)
 
 	casos := map[string]string{
-		"state":        `UPDATE task_runs SET state = 'inventado' WHERE id = $1`,
-		"level":        `INSERT INTO risk_gates (tenant_id, task_run_id, deterministic_level, level, reason) VALUES (1, $1, 'alto', 'altissimo', 'x')`,
-		"failure_type": `INSERT INTO sandbox_results (tenant_id, task_run_id, attempt, compiled, tests_passed, tests_failed, raw_output, duration_ms, failure_type) VALUES (1, $1, 1, true, 0, 0, '', 0, 'culpa_do_estagiario')`,
-		"decision":     `INSERT INTO approvals (tenant_id, task_run_id, delivery_id, decision, reviewer, decided_at) VALUES (1, $1, 'x', 'talvez', 'r', now())`,
+		"state":                            `UPDATE task_runs SET state = 'inventado' WHERE id = $1`,
+		"level":                            `INSERT INTO risk_gates (tenant_id, task_run_id, deterministic_level, level, reason) VALUES (1, $1, 'alto', 'altissimo', 'x')`,
+		"failure_type":                     `INSERT INTO sandbox_results (tenant_id, task_run_id, attempt, compiled, tests_passed, tests_failed, raw_output, duration_ms, failure_type) VALUES (1, $1, 1, true, 0, 0, '', 0, 'culpa_do_estagiario')`,
+		"compilou com falha de compilação": `INSERT INTO sandbox_results (tenant_id, task_run_id, attempt, compiled, tests_passed, tests_failed, raw_output, duration_ms, failure_type) VALUES (1, $1, 1, true, 0, 0, '', 0, 'compilacao')`,
+		"nenhuma falha com teste falho":    `INSERT INTO sandbox_results (tenant_id, task_run_id, attempt, compiled, tests_passed, tests_failed, raw_output, duration_ms, failure_type) VALUES (1, $1, 1, true, 3, 1, '', 0, 'nenhuma')`,
+		"decision":                         `INSERT INTO approvals (tenant_id, task_run_id, delivery_id, decision, reviewer, decided_at) VALUES (1, $1, 'x', 'talvez', 'r', now())`,
 	}
 
 	for coluna, comando := range casos {
@@ -137,19 +139,26 @@ func retratoDoEsquema(t *testing.T, url string) string {
 	var retrato string
 	err = conexao.QueryRow(t.Context(), `
 		SELECT coalesce(string_agg(item, ' | ' ORDER BY item), '') FROM (
-			SELECT 'coluna ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable AS item
+			SELECT 'coluna ' || table_name || '.' || column_name || ' ' || data_type || ' ' || is_nullable
+			       || ' default ' || coalesce(column_default, '-') || ' identity ' || is_identity AS item
 			FROM information_schema.columns
 			WHERE table_schema = 'public' AND table_name <> 'schema_migrations'
 			UNION ALL
-			SELECT 'indice ' || indexname FROM pg_indexes
+			SELECT 'restricao ' || conrelid::regclass || ' ' || conname || ' ' || pg_get_constraintdef(oid)
+			FROM pg_constraint
+			WHERE connamespace = 'public'::regnamespace AND conrelid <> 'schema_migrations'::regclass
+			UNION ALL
+			SELECT 'indice ' || indexdef FROM pg_indexes
 			WHERE schemaname = 'public' AND tablename <> 'schema_migrations'
 			UNION ALL
-			SELECT 'funcao ' || p.proname FROM pg_proc p
+			SELECT 'sequencia ' || sequencename FROM pg_sequences WHERE schemaname = 'public'
+			UNION ALL
+			SELECT 'funcao ' || pg_get_functiondef(p.oid) FROM pg_proc p
 			JOIN pg_namespace n ON n.oid = p.pronamespace
 			WHERE n.nspname = 'public' AND NOT EXISTS (
 				SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
 			UNION ALL
-			SELECT 'trigger ' || tgname FROM pg_trigger WHERE NOT tgisinternal
+			SELECT 'trigger ' || pg_get_triggerdef(oid) FROM pg_trigger WHERE NOT tgisinternal
 			UNION ALL
 			SELECT 'extensao ' || extname FROM pg_extension WHERE extname <> 'plpgsql'
 		) itens`).Scan(&retrato)

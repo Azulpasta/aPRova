@@ -10,7 +10,9 @@ CREATE TABLE sandbox_results (
     duration_ms  bigint NOT NULL CHECK (duration_ms >= 0),
     failure_type text NOT NULL CHECK (failure_type IN ('nenhuma', 'teste', 'compilacao', 'infraestrutura')),
     created_at   timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (task_run_id, attempt)
+    UNIQUE (task_run_id, attempt),
+    CHECK (failure_type <> 'nenhuma' OR (compiled AND tests_failed = 0)),
+    CHECK (failure_type <> 'compilacao' OR NOT compiled)
 );
 
 CREATE INDEX sandbox_results_tenant_id ON sandbox_results (tenant_id);

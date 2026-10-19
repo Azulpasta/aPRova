@@ -17,6 +17,9 @@ SELECT tr.tenant_id, tr.id, $1, $2, $3,
        $4, $5, $6
 FROM task_runs tr
 WHERE tr.id = $7
+  AND ($1::uuid IS NULL OR EXISTS (
+      SELECT 1 FROM receipts anterior
+      WHERE anterior.id = $1::uuid AND anterior.tenant_id = tr.tenant_id))
 RETURNING id, tenant_id, task_run_id, previous_receipt_id, payload, content_hash, signature, key_id, signed_at, created_at
 `
 
@@ -62,6 +65,8 @@ const getReceipt = `-- name: GetReceipt :one
 SELECT id, tenant_id, task_run_id, previous_receipt_id, payload, content_hash, signature, key_id, signed_at, created_at FROM receipts WHERE id = $1
 `
 
+// Sem tenant de propósito: a verificação de um recibo é pública por desenho
+// (GET /receipts/{id}/verify), e o id é um uuid aleatório.
 func (q *Queries) GetReceipt(ctx context.Context, id string) (Receipt, error) {
 	row := q.db.QueryRow(ctx, getReceipt, id)
 	var i Receipt

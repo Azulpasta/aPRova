@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/Azulpasta/aPRova/internal/acaoremota"
@@ -103,7 +104,7 @@ func (r *RepositorioPostgres) CriarTaskRun(ctx context.Context, novo domain.Novo
 		TenantID:    novo.TenantID,
 		DeliveryID:  novo.DeliveryID,
 		Repository:  novo.Repositorio,
-		PrNumber:    int32(novo.NumeroPR), //nolint:gosec // validado como positivo; números de PR cabem em int32
+		PrNumber:    int32(novo.NumeroPR), //nolint:gosec // validado entre 1 e math.MaxInt32
 		HeadSha:     novo.SHAHead,
 		Author:      novo.Autor,
 		EventAction: novo.Acao,
@@ -152,7 +153,7 @@ func (r *RepositorioPostgres) TransicionarTaskRun(ctx context.Context, transicao
 			ID: transicao.TaskRunID, FromState: string(transicao.De), ToState: string(transicao.Para),
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("%w: %s não está em %s", domain.ErrTransicaoConcorrente, transicao.TaskRunID, transicao.De)
+			return tx.semLinhaNaTransicao(ctx, transicao)
 		}
 		if err != nil {
 			return traduzir("transicionar task_run", err)
@@ -198,11 +199,15 @@ func (r *RepositorioPostgres) RegistrarRevisao(ctx context.Context, decisao doma
 	if !conhecida {
 		return fmt.Errorf("%w: estado de review %q", domain.ErrDadosInvalidos, decisao.Estado)
 	}
+	numeroPR, err := numeroDePR(decisao.NumeroPR)
+	if err != nil {
+		return err
+	}
 
 	taskRun, err := r.consultas.GetLatestTaskRunForPullRequest(ctx, db.GetLatestTaskRunForPullRequestParams{
 		TenantID:   decisao.InstallationID,
 		Repository: decisao.Repositorio,
-		PrNumber:   int32(decisao.NumeroPR), //nolint:gosec // números de PR cabem em int32
+		PrNumber:   numeroPR,
 	})
 	if err != nil {
 		return traduzir("buscar task_run do pull request", err)
@@ -229,7 +234,7 @@ func (r *RepositorioPostgres) RegistrarAprovacao(ctx context.Context, aprovacao 
 		motivo = &texto
 	}
 
-	_, err := r.consultas.CreateApproval(ctx, db.CreateApprovalParams{
+	inseridas, err := r.consultas.CreateApproval(ctx, db.CreateApprovalParams{
 		TaskRunID:      aprovacao.TaskRunID,
 		DeliveryID:     aprovacao.DeliveryID,
 		Decision:       string(aprovacao.Decisao),
@@ -238,7 +243,23 @@ func (r *RepositorioPostgres) RegistrarAprovacao(ctx context.Context, aprovacao 
 		Justification:  aprovacao.Justificativa,
 		DecidedAt:      aprovacao.DecididaEm,
 	})
-	return traduzir("registrar aprovação", err)
+	if err != nil {
+		return traduzir("registrar aprovação", err)
+	}
+	if inseridas > 0 {
+		return nil
+	}
+
+	// Nenhuma linha: ou é reentrega do mesmo delivery_id, que não é erro, ou o
+	// task_run não existe.
+	existe, err := r.consultas.TaskRunExists(ctx, aprovacao.TaskRunID)
+	if err != nil {
+		return traduzir("conferir task_run da aprovação", err)
+	}
+	if !existe {
+		return fmt.Errorf("registrar aprovação: task_run %s: %w", aprovacao.TaskRunID, domain.ErrNaoEncontrado)
+	}
+	return nil
 }
 
 // GravarGateDeRisco grava a decisão do gate. Só existe uma por task_run.
@@ -344,7 +365,7 @@ func (r *RepositorioPostgres) GravarMemoriaDeCodigo(ctx context.Context, memoria
 		return 0, err
 	}
 
-	linha, err := r.consultas.CreateCodeMemory(ctx, db.CreateCodeMemoryParams{
+	id, err := r.consultas.CreateCodeMemory(ctx, db.CreateCodeMemoryParams{
 		TenantID:   memoria.TenantID,
 		TaskRunID:  memoria.TaskRunID,
 		Repository: memoria.Repositorio,
@@ -354,9 +375,9 @@ func (r *RepositorioPostgres) GravarMemoriaDeCodigo(ctx context.Context, memoria
 		Outcome:    string(memoria.Desfecho),
 	})
 	if err != nil {
-		return 0, traduzir("gravar memória de código", err)
+		return 0, traduzir("gravar memória de código: task_run inexistente ou de outro tenant", err)
 	}
-	return linha.ID, nil
+	return id, nil
 }
 
 // BuscarVizinhos devolve as memórias do tenant mais próximas do embedding,
@@ -369,13 +390,24 @@ func (r *RepositorioPostgres) BuscarVizinhos(ctx context.Context, tenantID int64
 		return nil, fmt.Errorf("%w: limite %d fora de 1..1000", domain.ErrDadosInvalidos, limite)
 	}
 
-	linhas, err := r.consultas.FindNearestCodeMemory(ctx, db.FindNearestCodeMemoryParams{
-		Embedding:  pgvector.NewVector(embedding),
-		TenantID:   tenantID,
-		MaxResults: int32(limite), //nolint:gosec // limitado a 1000 acima
+	var linhas []db.FindNearestCodeMemoryRow
+	err := r.EmTransacao(ctx, func(tx *RepositorioPostgres) error {
+		// Sem a varredura iterativa, o HNSW entrega só hnsw.ef_search candidatos
+		// de todos os tenants e o filtro por tenant pode deixar o resultado vazio.
+		if _, err := tx.conexao.Exec(ctx, "SELECT set_config('hnsw.iterative_scan', 'strict_order', true)"); err != nil {
+			return fmt.Errorf("ligar varredura iterativa do hnsw: %w", err)
+		}
+
+		var err error
+		linhas, err = tx.consultas.FindNearestCodeMemory(ctx, db.FindNearestCodeMemoryParams{
+			Embedding:  pgvector.NewVector(embedding),
+			TenantID:   tenantID,
+			MaxResults: int32(limite), //nolint:gosec // limitado a 1000 acima
+		})
+		return traduzir("buscar vizinhos", err)
 	})
 	if err != nil {
-		return nil, traduzir("buscar vizinhos", err)
+		return nil, err
 	}
 
 	vizinhos := make([]domain.Vizinho, 0, len(linhas))
@@ -414,10 +446,15 @@ func (r *RepositorioPostgres) ResolverIdentidade(ctx context.Context, tenantID i
 
 // Registrar guarda a tentativa de ação remota. Pedidos inválidos ficam só no
 // log, porque não identificam com segurança tenant, tipo nem pull request. Um
-// clique repetido com o mesmo id_acao mantém o primeiro registro.
+// clique repetido com o mesmo id_acao mantém o primeiro registro, e a
+// repetição também fica só no log.
 func (r *RepositorioPostgres) Registrar(ctx context.Context, tentativa acaoremota.Tentativa) error {
-	if tentativa.Decisao == acaoremota.DecisaoInvalida {
+	if tentativa.Decisao == acaoremota.DecisaoInvalida || tentativa.Decisao == acaoremota.DecisaoRepetida {
 		return nil
+	}
+	numeroPR, err := numeroDePR(tentativa.NumeroPR)
+	if err != nil {
+		return err
 	}
 
 	var login *string
@@ -425,11 +462,11 @@ func (r *RepositorioPostgres) Registrar(ctx context.Context, tentativa acaoremot
 		login = &tentativa.LoginGitHub
 	}
 
-	_, err := r.consultas.CreateRemoteActionAttempt(ctx, db.CreateRemoteActionAttemptParams{
+	_, err = r.consultas.CreateRemoteActionAttempt(ctx, db.CreateRemoteActionAttemptParams{
 		ActionID:    tentativa.IDAcao,
 		TenantID:    tentativa.InstallationID,
 		Repository:  tentativa.Repositorio,
-		PrNumber:    int32(tentativa.NumeroPR), //nolint:gosec // números de PR cabem em int32
+		PrNumber:    numeroPR,
 		ActionType:  string(tentativa.Tipo),
 		SlackUserID: tentativa.UsuarioSlack,
 		GithubLogin: login,
@@ -438,6 +475,28 @@ func (r *RepositorioPostgres) Registrar(ctx context.Context, tentativa acaoremot
 		AttemptedAt: tentativa.Em,
 	})
 	return traduzir("registrar tentativa de ação remota", err)
+}
+
+// semLinhaNaTransicao distingue o task_run que mudou de estado do que nunca
+// existiu.
+func (r *RepositorioPostgres) semLinhaNaTransicao(ctx context.Context, transicao domain.Transicao) error {
+	existe, err := r.consultas.TaskRunExists(ctx, transicao.TaskRunID)
+	if err != nil {
+		return traduzir("conferir task_run da transição", err)
+	}
+	if !existe {
+		return fmt.Errorf("transicionar task_run %s: %w", transicao.TaskRunID, domain.ErrNaoEncontrado)
+	}
+	return fmt.Errorf("%w: %s não está em %s", domain.ErrTransicaoConcorrente, transicao.TaskRunID, transicao.De)
+}
+
+// numeroDePR converte o número do pull request para a coluna integer, que
+// não comporta todo int.
+func numeroDePR(numero int) (int32, error) {
+	if numero <= 0 || numero > math.MaxInt32 {
+		return 0, fmt.Errorf("%w: número de PR %d fora de 1..%d", domain.ErrDadosInvalidos, numero, math.MaxInt32)
+	}
+	return int32(numero), nil
 }
 
 func validar(valor any) error {

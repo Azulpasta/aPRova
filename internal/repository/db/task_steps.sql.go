@@ -43,35 +43,3 @@ func (q *Queries) CreateTaskStep(ctx context.Context, arg CreateTaskStepParams) 
 	)
 	return i, err
 }
-
-const listTaskSteps = `-- name: ListTaskSteps :many
-SELECT id, tenant_id, task_run_id, from_state, to_state, detail, created_at FROM task_steps WHERE task_run_id = $1 ORDER BY id
-`
-
-func (q *Queries) ListTaskSteps(ctx context.Context, taskRunID string) ([]TaskStep, error) {
-	rows, err := q.db.Query(ctx, listTaskSteps, taskRunID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TaskStep{}
-	for rows.Next() {
-		var i TaskStep
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.TaskRunID,
-			&i.FromState,
-			&i.ToState,
-			&i.Detail,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}

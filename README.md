@@ -86,7 +86,9 @@ Postgres do Compose):
 make migrate-up
 ```
 
-`make migrate-down` desfaz a última e `make migrate-reset` desfaz todas.
+`make migrate-down` desfaz a última e `make migrate-reset CONFIRMAR=sim` desfaz
+todas. Os alvos montam a URL a partir de `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_PORT` e `POSTGRES_DB`; para outro banco, passe `DATABASE_URL`.
 
 Em um terminal, suba a API:
 
@@ -173,7 +175,8 @@ make lint
 
 O modelo está em [docs/modelo-dados.html](docs/modelo-dados.html). São nove
 tabelas, todas com `tenant_id` (o `installation_id` do GitHub) obrigatório e
-indexado. `task_runs` é a raiz e as demais pendem dela:
+indexado. `task_runs` é a raiz das tabelas relacionadas; só `identity_links`
+fica de fora:
 
 | Tabela | Papel | Ao apagar o `task_run` |
 | --- | --- | --- |
@@ -188,8 +191,12 @@ indexado. `task_runs` é a raiz e as demais pendem dela:
 | `remote_action_attempts` | toda ação remota autenticada (`action_id` único) | ficam, com `task_run_id` nulo |
 
 `receipts` é append-only no próprio banco: um trigger recusa `UPDATE`, `DELETE`
-e `TRUNCATE`, mesmo vindos de fora da aplicação. Só um superusuário que
-desligue o trigger consegue alterar um recibo.
+e `TRUNCATE`, mesmo vindos de fora da aplicação. O trigger, porém, não segura
+o dono da tabela: quem roda as migrations pode desligá-lo ou apagá-lo. Hoje a
+aplicação e as migrations usam o mesmo usuário, então a garantia vale contra
+erro de código, não contra quem tem a credencial do banco. Para fechar isso em
+produção, rode as migrations com um usuário dono das tabelas e dê ao usuário
+da aplicação só `SELECT` e `INSERT` em `receipts`.
 
 Os estados do `task_run` seguem [docs/maquina-estados.mmd](docs/maquina-estados.mmd).
 

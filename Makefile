@@ -1,7 +1,9 @@
 COMPOSE ?= docker-compose
 POSTGRES_USER ?= aprova
+POSTGRES_PASSWORD ?= aprova
 POSTGRES_DB ?= aprova
-DATABASE_URL ?= postgres://aprova:aprova@localhost:5432/aprova?sslmode=disable
+POSTGRES_PORT ?= 5432
+DATABASE_URL ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 MIGRATE ?= migrate
 SQLC ?= sqlc
 
@@ -22,6 +24,11 @@ migrate-down:
 	$(MIGRATE) -path migrations -database "$(DATABASE_URL)" down 1
 
 migrate-reset:
+	@if [ "$(CONFIRMAR)" != "sim" ]; then \
+		echo "migrate-reset apaga todas as tabelas de $(DATABASE_URL)"; \
+		echo "para confirmar: make migrate-reset CONFIRMAR=sim"; \
+		exit 1; \
+	fi
 	$(MIGRATE) -path migrations -database "$(DATABASE_URL)" down -all
 
 sqlc:

@@ -15,6 +15,3 @@ VALUES (
     sqlc.arg(repository), sqlc.arg(pr_number), sqlc.arg(decision), sqlc.arg(reason), sqlc.arg(attempted_at)
 )
 ON CONFLICT (action_id) DO NOTHING;
-
--- name: GetRemoteActionAttempt :one
-SELECT * FROM remote_action_attempts WHERE action_id = $1;

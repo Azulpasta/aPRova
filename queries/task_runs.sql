@@ -18,6 +18,9 @@ WHERE tenant_id = $1 AND repository = $2 AND pr_number = $3
 ORDER BY created_at DESC, id DESC
 LIMIT 1;
 
+-- name: TaskRunExists :one
+SELECT EXISTS (SELECT 1 FROM task_runs WHERE id = $1);
+
 -- name: TransitionTaskRun :one
 -- Só transiciona quem ainda está no estado esperado; zero linhas indica que
 -- outro processo chegou antes.

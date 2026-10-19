@@ -140,6 +140,17 @@ func (q *Queries) GetTaskRunByDeliveryID(ctx context.Context, deliveryID string)
 	return i, err
 }
 
+const taskRunExists = `-- name: TaskRunExists :one
+SELECT EXISTS (SELECT 1 FROM task_runs WHERE id = $1)
+`
+
+func (q *Queries) TaskRunExists(ctx context.Context, id string) (bool, error) {
+	row := q.db.QueryRow(ctx, taskRunExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const transitionTaskRun = `-- name: TransitionTaskRun :one
 UPDATE task_runs
 SET state = $1, updated_at = now()
