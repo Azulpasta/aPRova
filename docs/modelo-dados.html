@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>aPRova — Modelo de dados</title>
+  <!-- Gerado a partir do esquema aplicado pelas migrations. Ao mudar uma
+       migration, atualize este arquivo junto. -->
+  <style>
+    :root { --bg: #090e1b; --panel: #111a2c; --line: rgba(255, 255, 255, .12); --text: #f4f7ff; --muted: #9daac2; --accent: #62d398; --warn: #f2b66d; --info: #7fb4ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); line-height: 1.5; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { margin: 0 0 4px; font-size: 1.6rem; }
+    h1 span { color: var(--accent); }
+    h2 { margin: 0 0 4px; font-size: 1.15rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+    p, li { color: var(--muted); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 24px; }
+    nav a { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; font-family: ui-monospace, monospace; font-size: .85rem; }
+    .bloco, .tabela { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .rolagem { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+    th { color: var(--muted); font-weight: 500; }
+    td.c { font-family: ui-monospace, monospace; }
+    td.d { color: var(--muted); font-family: ui-monospace, monospace; font-size: .8rem; }
+    .m { display: inline-block; margin-right: 4px; padding: 0 6px; border-radius: 6px; font-size: .75rem; border: 1px solid; }
+    .pk { color: var(--accent); } .uq { color: var(--info); } .fk { color: var(--warn); }
+    .restricoes { margin: 8px 0 0; padding-left: 18px; font-size: .85rem; font-family: ui-monospace, monospace; }
+    .acao { color: var(--warn); font-size: .85rem; }
+    .papel { margin: 0; } .go { margin: 4px 0 12px; font-size: .9rem; }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>aPRova · <span>modelo de dados</span></h1>
+    <p>Nove tabelas em PostgreSQL 16 com pgvector. Todas levam <code>tenant_id</code> (o <code>installation_id</code> do GitHub), obrigatório e indexado. Estados do <code>task_run</code> conforme <code>docs/maquina-estados.mmd</code>. <code>task_runs.id</code> e <code>receipts.id</code> são uuid porque aparecem fora do banco; os demais ids são <code>bigint</code> identity, exceto <code>remote_action_attempts.action_id</code>, que vem do n8n.</p>
+    <nav><a href="#task_runs">task_runs</a><a href="#task_steps">task_steps</a><a href="#sandbox_results">sandbox_results</a><a href="#risk_gates">risk_gates</a><a href="#receipts">receipts</a><a href="#approvals">approvals</a><a href="#code_memory">code_memory</a><a href="#identity_links">identity_links</a><a href="#remote_action_attempts">remote_action_attempts</a></nav>
+    <section class="bloco">
+      <h2>relacionamentos</h2>
+      <ul><li><code>task_steps.task_run_id</code> → <code>task_runs</code> <span class='acao'>CASCADE</span></li><li><code>sandbox_results.task_run_id</code> → <code>task_runs</code> <span class='acao'>CASCADE</span></li><li><code>risk_gates.task_run_id</code> → <code>task_runs</code> <span class='acao'>RESTRICT</span></li><li><code>receipts.previous_receipt_id</code> → <code>receipts</code> <span class='acao'>RESTRICT</span></li><li><code>receipts.task_run_id</code> → <code>task_runs</code> <span class='acao'>RESTRICT</span></li><li><code>approvals.task_run_id</code> → <code>task_runs</code> <span class='acao'>RESTRICT</span></li><li><code>code_memory.task_run_id</code> → <code>task_runs</code> <span class='acao'>SET NULL</span></li><li><code>remote_action_attempts.task_run_id</code> → <code>task_runs</code> <span class='acao'>SET NULL</span></li></ul>
+    </section>
+    <section class="tabela" id="task_runs">
+  <h2>task_runs</h2>
+  <p class="papel">Raiz. Uma análise por entrega do webhook de pull request.</p>
+  <p class="go">Go: <code>domain.TaskRun / domain.NovoTaskRun</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>uuid</td><td>NOT NULL</td><td class="d">gen_random_uuid()</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">delivery_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td><span class="m uq">UNIQUE</span></td></tr><tr><td class="c">repository</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">pr_number</td><td>integer</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">head_sha</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">author</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">event_action</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">state</td><td>text</td><td>NOT NULL</td><td class="d">&#x27;pendente&#x27;::text</td><td></td></tr><tr><td class="c">received_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr><tr><td class="c">updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK state ∈ {pendente, mapeando_contexto, gerando, testando_sandbox, avaliando_risco, aguardando_aprovacao, aplicando, concluido, rejeitado, falhou}</li><li>CHECK tenant_id &gt; 0</li><li>CHECK pr_number &gt; 0</li><li>índice (state, created_at)</li><li>índice (tenant_id, repository, pr_number, created_at)</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="task_steps">
+  <h2>task_steps</h2>
+  <p class="papel">Cada transição de estado do task_run, na ordem em que aconteceu.</p>
+  <p class="go">Go: <code>domain.Transicao</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NOT NULL</td><td class="d"></td><td><span class="m fk">FK → task_runs · ON DELETE CASCADE</span></td></tr><tr><td class="c">from_state</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">to_state</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">detail</td><td>text</td><td>NOT NULL</td><td class="d">&#x27;&#x27;::text</td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK from_state ∈ {pendente, mapeando_contexto, gerando, testando_sandbox, avaliando_risco, aguardando_aprovacao, aplicando, concluido, rejeitado, falhou}</li><li>CHECK tenant_id &gt; 0</li><li>CHECK to_state ∈ {pendente, mapeando_contexto, gerando, testando_sandbox, avaliando_risco, aguardando_aprovacao, aplicando, concluido, rejeitado, falhou}</li><li>índice (task_run_id, id)</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="sandbox_results">
+  <h2>sandbox_results</h2>
+  <p class="papel">Resultado normalizado do sandbox (ResultadoSandbox), por tentativa.</p>
+  <p class="go">Go: <code>sandbox.ResultadoSandbox</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NOT NULL</td><td class="d"></td><td><span class="m fk">FK → task_runs · ON DELETE CASCADE</span></td></tr><tr><td class="c">attempt</td><td>integer</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">compiled</td><td>boolean</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">tests_passed</td><td>integer</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">tests_failed</td><td>integer</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">raw_output</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">duration_ms</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">failure_type</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>UNIQUE (task_run_id, attempt)</li><li>CHECK failure_type ∈ {nenhuma, teste, compilacao, infraestrutura}</li><li>CHECK tests_passed &gt;= 0</li><li>CHECK tests_failed &gt;= 0</li><li>CHECK duration_ms &gt;= 0</li><li>CHECK tenant_id &gt; 0</li><li>CHECK attempt &gt; 0</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="risk_gates">
+  <h2>risk_gates</h2>
+  <p class="papel">Decisão do gate: nível determinístico, nível final e motivo nomeado.</p>
+  <p class="go">Go: <code>domain.GateDeRisco</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NOT NULL</td><td class="d"></td><td><span class="m uq">UNIQUE</span><span class="m fk">FK → task_runs · ON DELETE RESTRICT</span></td></tr><tr><td class="c">deterministic_level</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">level</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">reason</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK deterministic_level ∈ {baixo, medio, alto}</li><li>CHECK reason &lt;&gt; &#x27;&#x27;</li><li>CHECK level ∈ {baixo, medio, alto}</li><li>CHECK tenant_id &gt; 0</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="receipts">
+  <h2>receipts</h2>
+  <p class="papel">Recibo Ed25519 da decisão. Append-only: trigger recusa UPDATE, DELETE e TRUNCATE.</p>
+  <p class="go">Go: <code>domain.Recibo / domain.NovoRecibo</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>uuid</td><td>NOT NULL</td><td class="d">gen_random_uuid()</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NOT NULL</td><td class="d"></td><td><span class="m uq">UNIQUE</span><span class="m fk">FK → task_runs · ON DELETE RESTRICT</span></td></tr><tr><td class="c">previous_receipt_id</td><td>uuid</td><td>NULL</td><td class="d"></td><td><span class="m fk">FK → receipts · ON DELETE RESTRICT</span></td></tr><tr><td class="c">payload</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">content_hash</td><td>bytea</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">signature</td><td>bytea</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">key_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">signed_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK octet_length(signature) = 64</li><li>CHECK tenant_id &gt; 0</li><li>CHECK octet_length(content_hash) = 32</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="approvals">
+  <h2>approvals</h2>
+  <p class="papel">Decisão humana de revisão, com o feedback rotulado que alimenta a calibração.</p>
+  <p class="go">Go: <code>domain.Aprovacao</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NOT NULL</td><td class="d"></td><td><span class="m fk">FK → task_runs · ON DELETE RESTRICT</span></td></tr><tr><td class="c">delivery_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td><span class="m uq">UNIQUE</span></td></tr><tr><td class="c">decision</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">reviewer</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">feedback_reason</td><td>text</td><td>NULL</td><td class="d"></td><td></td></tr><tr><td class="c">justification</td><td>text</td><td>NULL</td><td class="d"></td><td></td></tr><tr><td class="c">decided_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK feedback_reason ∈ {regra_conservadora, risco_aceito, falso_positivo}</li><li>CHECK tenant_id &gt; 0</li><li>CHECK decision ∈ {aprovada, alteracoes_solicitadas}</li><li>índice (task_run_id)</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="code_memory">
+  <h2>code_memory</h2>
+  <p class="papel">Decisões passadas com embedding (pgvector), para a calibração por histórico.</p>
+  <p class="go">Go: <code>domain.MemoriaDeCodigo / domain.Vizinho</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NULL</td><td class="d"></td><td><span class="m fk">FK → task_runs · ON DELETE SET NULL</span></td></tr><tr><td class="c">repository</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">summary</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">embedding</td><td>vector(1536)</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">level</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">outcome</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK level ∈ {baixo, medio, alto}</li><li>CHECK tenant_id &gt; 0</li><li>CHECK outcome ∈ {revertida_apos_merge, alto_risco_aprovada, fechada_sem_merge, ajustada_e_aprovada, sem_reversao}</li><li>índice USING hnsw (embedding vector_cosine_ops)</li><li>índice (task_run_id)</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="identity_links">
+  <h2>identity_links</h2>
+  <p class="papel">Vínculo entre usuário do Slack e login do GitHub, por tenant.</p>
+  <p class="go">Go: <code>(login resolvido por RepositorioPostgres.ResolverIdentidade)</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">id</td><td>bigint</td><td>NOT NULL</td><td class="d">GENERATED ALWAYS AS IDENTITY</td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">slack_user_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">github_login</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>UNIQUE (tenant_id, slack_user_id)</li><li>CHECK tenant_id &gt; 0</li><li>índice (tenant_id)</li></ul>
+</section><section class="tabela" id="remote_action_attempts">
+  <h2>remote_action_attempts</h2>
+  <p class="papel">Toda ação remota autenticada e seu desfecho. action_id vem do n8n.</p>
+  <p class="go">Go: <code>acaoremota.Tentativa</code></p>
+  <div class="rolagem"><table><thead><tr><th>coluna</th><th>tipo</th><th>nulo</th><th>padrão</th><th>chaves</th></tr></thead><tbody>
+  <tr><td class="c">action_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td><span class="m pk">PK</span></td></tr><tr><td class="c">tenant_id</td><td>bigint</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">task_run_id</td><td>uuid</td><td>NULL</td><td class="d"></td><td><span class="m fk">FK → task_runs · ON DELETE SET NULL</span></td></tr><tr><td class="c">action_type</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">slack_user_id</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">github_login</td><td>text</td><td>NULL</td><td class="d"></td><td></td></tr><tr><td class="c">repository</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">pr_number</td><td>integer</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">decision</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">reason</td><td>text</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">attempted_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d"></td><td></td></tr><tr><td class="c">created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td class="d">now()</td><td></td></tr>
+  </tbody></table></div>
+  <ul class="restricoes"><li>CHECK tenant_id &gt; 0</li><li>CHECK action_type ∈ {aprovar, solicitar_alteracao, reexecutar_analise}</li><li>CHECK pr_number &gt; 0</li><li>CHECK decision ∈ {aceita, recusada, repetida, falha}</li><li>índice (task_run_id)</li><li>índice (tenant_id)</li></ul>
+</section>
+  </main>
+</body>
+
+</html>
